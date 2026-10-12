@@ -1,0 +1,5279 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>FANET Routing Dashboard</title>
+
+    <!-- =========================================================
+         CHART.JS
+         ========================================================= -->
+    <script
+        src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js">
+    </script>
+
+
+    <style>
+
+        /* =========================================================
+           GLOBAL COLORS
+           ========================================================= */
+
+        :root {
+
+            --bg: #08111f;
+
+            --panel: #101d30;
+
+            --panel-2: #16263c;
+
+            --border: #29425f;
+
+            --text: #f3f7ff;
+
+            --muted: #88b9e8;
+
+            --blue: #4f95e8;
+
+            --orange: #ff654d;
+
+            --green: #30e1a1;
+
+            --yellow: #ffd166;
+
+            --danger: #ff6464;
+
+            --gray: #9eb0c5;
+        }
+
+
+        * {
+            box-sizing: border-box;
+        }
+
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+
+        body {
+
+            margin: 0;
+
+            background: var(--bg);
+
+            color: var(--text);
+
+            font-family:
+                "Segoe UI",
+                Arial,
+                sans-serif;
+
+            line-height: 1.45;
+        }
+
+
+        .page {
+
+            width: min(
+                1500px,
+                calc(100% - 32px)
+            );
+
+            margin: 0 auto;
+
+            padding:
+                18px 0
+                45px;
+        }
+
+
+        /* =========================================================
+           TITLES
+           ========================================================= */
+
+        h1,
+        h2,
+        h3 {
+
+            margin-top: 0;
+        }
+
+
+        h1 {
+
+            font-size: 34px;
+
+            margin-bottom: 4px;
+        }
+
+
+        h2 {
+
+            font-size: 20px;
+
+            margin-bottom: 5px;
+        }
+
+
+        .subtitle {
+
+            color: var(--muted);
+
+            margin:
+                0 0
+                8px;
+
+            font-size: 16px;
+        }
+
+
+        .section-subtitle {
+
+            color: var(--muted);
+
+            font-size: 13px;
+
+            margin:
+                0 0
+                16px;
+        }
+
+
+        /* =========================================================
+           STATUS
+           ========================================================= */
+
+        .status {
+
+            margin:
+                6px 0
+                12px;
+
+            min-height: 24px;
+
+            color: var(--green);
+
+            font-size: 14px;
+
+            overflow-wrap: anywhere;
+        }
+
+
+        .status.error {
+
+            color: var(--danger);
+        }
+
+
+        .status.warning {
+
+            color: var(--yellow);
+        }
+
+
+        /* =========================================================
+           BUTTONS / FILES
+           ========================================================= */
+
+        .toolbar {
+
+            display: flex;
+
+            gap: 12px;
+
+            align-items: center;
+
+            flex-wrap: wrap;
+
+            padding-bottom: 18px;
+
+            margin-bottom: 22px;
+
+            border-bottom:
+                1px solid
+                var(--border);
+        }
+
+
+        button {
+
+            padding:
+                9px
+                14px;
+
+            border-radius: 7px;
+
+            border:
+                1px solid
+                transparent;
+
+            background: var(--blue);
+
+            color: white;
+
+            font-size: 14px;
+
+            cursor: pointer;
+        }
+
+
+        button:hover {
+
+            filter:
+                brightness(1.08);
+        }
+
+
+        button.secondary {
+
+            background:
+                transparent;
+
+            border-color:
+                var(--border);
+
+            color:
+                var(--text);
+        }
+
+
+        input[type="file"] {
+
+            color:
+                var(--muted);
+
+            max-width:
+                100%;
+        }
+
+
+        /* =========================================================
+           PANELS
+           ========================================================= */
+
+        .panel {
+
+            background:
+                var(--panel);
+
+            border:
+                1px solid
+                var(--border);
+
+            border-radius:
+                11px;
+
+            padding:
+                20px;
+
+            margin-bottom:
+                20px;
+
+            min-width:
+                0;
+        }
+
+
+        .grid {
+
+            display:
+                grid;
+
+            gap:
+                18px;
+        }
+
+
+        .two-col {
+
+            grid-template-columns:
+                repeat(
+                    2,
+                    minmax(0, 1fr)
+                );
+        }
+
+
+        .three-col {
+
+            grid-template-columns:
+                repeat(
+                    3,
+                    minmax(0, 1fr)
+                );
+        }
+
+
+        /* =========================================================
+           KPI
+           ========================================================= */
+
+        .kpi-grid {
+
+            grid-template-columns:
+                repeat(
+                    5,
+                    minmax(0, 1fr)
+                );
+
+            margin-bottom:
+                20px;
+        }
+
+
+        .kpi {
+
+            min-height:
+                122px;
+
+            display:
+                flex;
+
+            flex-direction:
+                column;
+
+            justify-content:
+                center;
+        }
+
+
+        .kpi-label {
+
+            color:
+                var(--muted);
+
+            font-size:
+                13px;
+
+            margin-bottom:
+                8px;
+        }
+
+
+        .kpi-value {
+
+            font-size:
+                30px;
+
+            font-weight:
+                750;
+        }
+
+
+        .kpi-sub {
+
+            color:
+                var(--muted);
+
+            margin-top:
+                4px;
+
+            font-size:
+                14px;
+        }
+
+
+        .llm {
+
+            color:
+                var(--blue);
+        }
+
+
+        .qfanet {
+
+            color:
+                var(--orange);
+        }
+
+
+        /* =========================================================
+           TRAFFIC
+           ========================================================= */
+
+        .traffic-grid {
+
+            display:
+                grid;
+
+            grid-template-columns:
+                repeat(
+                    7,
+                    minmax(130px, 1fr)
+                );
+
+            gap:
+                12px;
+        }
+
+
+        .traffic-item {
+
+            background:
+                var(--panel-2);
+
+            padding:
+                13px;
+
+            min-height:
+                65px;
+
+            border-radius:
+                8px;
+        }
+
+
+        .traffic-label {
+
+            color:
+                var(--muted);
+
+            font-size:
+                12px;
+
+            margin-bottom:
+                5px;
+        }
+
+
+        .traffic-value {
+
+            font-family:
+                Consolas,
+                "Courier New",
+                monospace;
+
+            font-size:
+                14px;
+
+            overflow-wrap:
+                anywhere;
+        }
+
+
+        /* =========================================================
+           CHARTS
+           ========================================================= */
+
+        .chart-wrap {
+
+            position:
+                relative;
+
+            height:
+                360px;
+
+            min-width:
+                0;
+        }
+
+
+        .chart-wrap.experiment {
+
+            height:
+                330px;
+
+            margin-top:
+                15px;
+        }
+
+
+        /* =========================================================
+           EXPERIMENT CONTROLS
+           ========================================================= */
+
+        .experiment-tools {
+
+            display:
+                flex;
+
+            align-items:
+                center;
+
+            gap:
+                14px;
+
+            flex-wrap:
+                wrap;
+
+            margin:
+                12px 0
+                10px;
+        }
+
+
+        .loaded-count {
+
+            color:
+                var(--green);
+
+            font-size:
+                13px;
+        }
+
+
+        /* =========================================================
+           TABLES
+           ========================================================= */
+
+        .table-wrap {
+
+            width:
+                100%;
+
+            overflow-x:
+                auto;
+        }
+
+
+        table {
+
+            width:
+                100%;
+
+            border-collapse:
+                collapse;
+
+            min-width:
+                780px;
+
+            font-size:
+                13px;
+        }
+
+
+        th,
+        td {
+
+            padding:
+                10px;
+
+            border-bottom:
+                1px solid
+                #223852;
+
+            text-align:
+                left;
+
+            vertical-align:
+                top;
+        }
+
+
+        th {
+
+            color:
+                #b9d9f8;
+
+            font-size:
+                12px;
+        }
+
+
+        td {
+
+            color:
+                #a9d0f5;
+        }
+
+
+        .mono {
+
+            font-family:
+                Consolas,
+                "Courier New",
+                monospace;
+        }
+
+
+        .empty {
+
+            text-align:
+                center;
+
+            color:
+                var(--muted);
+
+            padding:
+                25px !important;
+        }
+
+
+        /* =========================================================
+           STATUS BADGE
+           ========================================================= */
+
+        .badge {
+
+            display:
+                inline-block;
+
+            padding:
+                3px
+                8px;
+
+            border:
+                1px solid
+                var(--border);
+
+            border-radius:
+                999px;
+
+            font-size:
+                11px;
+        }
+
+
+        .badge.good {
+
+            color:
+                var(--green);
+        }
+
+
+        .badge.bad {
+
+            color:
+                var(--danger);
+        }
+
+
+        .badge.neutral {
+
+            color:
+                var(--gray);
+        }
+
+
+        /* =========================================================
+           GENERATED IMAGE
+           ========================================================= */
+
+        .image-panel {
+
+            text-align:
+                center;
+        }
+
+
+        .pdr-image {
+
+            width:
+                100%;
+
+            max-height:
+                720px;
+
+            object-fit:
+                contain;
+
+            background:
+                white;
+
+            border-radius:
+                9px;
+
+            margin:
+                14px auto;
+        }
+
+
+        .image-error {
+
+            color:
+                var(--danger);
+
+            padding:
+                25px;
+
+            display:
+                none;
+        }
+
+
+        .small-note {
+
+            color:
+                var(--muted);
+
+            font-size:
+                12px;
+
+            margin-top:
+                8px;
+        }
+
+
+        /* =========================================================
+           FOOTER
+           ========================================================= */
+
+        .footer {
+
+            color:
+                var(--muted);
+
+            font-size:
+                12px;
+
+            text-align:
+                center;
+
+            margin-top:
+                10px;
+        }
+
+
+        /* =========================================================
+           RESPONSIVE
+           ========================================================= */
+
+        @media
+        (max-width: 1200px) {
+
+            .kpi-grid {
+
+                grid-template-columns:
+                    repeat(
+                        3,
+                        minmax(0, 1fr)
+                    );
+            }
+
+
+            .traffic-grid {
+
+                grid-template-columns:
+                    repeat(
+                        4,
+                        minmax(130px, 1fr)
+                    );
+            }
+        }
+
+
+        @media
+        (max-width: 850px) {
+
+            .two-col,
+            .three-col {
+
+                grid-template-columns:
+                    1fr;
+            }
+
+
+            .kpi-grid {
+
+                grid-template-columns:
+                    repeat(
+                        2,
+                        minmax(0, 1fr)
+                    );
+            }
+
+
+            .traffic-grid {
+
+                grid-template-columns:
+                    repeat(
+                        2,
+                        minmax(130px, 1fr)
+                    );
+            }
+
+
+            .chart-wrap {
+
+                height:
+                    300px;
+            }
+        }
+
+
+        @media
+        (max-width: 520px) {
+
+            .kpi-grid,
+            .traffic-grid {
+
+                grid-template-columns:
+                    1fr;
+            }
+
+
+            .panel {
+
+                padding:
+                    14px;
+            }
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+<main class="page">
+
+
+    <!-- ============================================================
+         HEADER
+         ============================================================ -->
+
+    <header>
+
+        <h1>
+            FANET Routing Dashboard
+        </h1>
+
+        <p class="subtitle">
+            LLM + Reinforcement Learning vs Q-FANET
+        </p>
+
+
+        <div
+            id="comparison-status"
+            class="status"
+        >
+            Waiting for comparison_results.json...
+        </div>
+
+
+        <div class="toolbar">
+
+            <input
+                id="comparison-file"
+                type="file"
+                accept=".json,application/json"
+            >
+
+
+            <button
+                id="reload-all"
+                type="button"
+            >
+                Reload data
+            </button>
+
+
+            <button
+                id="clear-comparison"
+                type="button"
+                class="secondary"
+            >
+                Clear
+            </button>
+
+        </div>
+
+    </header>
+
+
+
+    <!-- ============================================================
+         KPI
+         ============================================================ -->
+
+    <section class="grid kpi-grid">
+
+
+        <article class="panel kpi">
+
+            <div class="kpi-label">
+                DATA packets generated
+            </div>
+
+            <div
+                id="kpi-generated"
+                class="kpi-value"
+            >
+                –
+            </div>
+
+        </article>
+
+
+
+        <article class="panel kpi">
+
+            <div class="kpi-label">
+                LLM+RL PDR
+            </div>
+
+            <div
+                id="kpi-llm-pdr"
+                class="kpi-value llm"
+            >
+                –
+            </div>
+
+            <div
+                id="kpi-llm-delivered"
+                class="kpi-sub"
+            >
+                –
+            </div>
+
+        </article>
+
+
+
+        <article class="panel kpi">
+
+            <div class="kpi-label">
+                Q-FANET PDR
+            </div>
+
+            <div
+                id="kpi-qfanet-pdr"
+                class="kpi-value qfanet"
+            >
+                –
+            </div>
+
+            <div
+                id="kpi-qfanet-delivered"
+                class="kpi-sub"
+            >
+                –
+            </div>
+
+        </article>
+
+
+
+        <article class="panel kpi">
+
+            <div class="kpi-label">
+                Simulation time
+            </div>
+
+            <div
+                id="kpi-duration"
+                class="kpi-value"
+            >
+                –
+            </div>
+
+        </article>
+
+
+
+        <article class="panel kpi">
+
+            <div class="kpi-label">
+                Session
+            </div>
+
+            <div
+                id="kpi-session"
+                class="traffic-value"
+            >
+                –
+            </div>
+
+        </article>
+
+
+    </section>
+
+
+
+    <!-- ============================================================
+         TRAFFIC CONFIGURATION
+         ============================================================ -->
+
+    <section class="panel">
+
+        <h2>
+            Traffic configuration
+        </h2>
+
+        <p class="section-subtitle">
+
+            Traffic, mobility and HELLO parameters.
+
+        </p>
+
+
+        <div class="traffic-grid">
+
+
+            <div class="traffic-item">
+
+                <div class="traffic-label">
+                    DATA rate
+                </div>
+
+                <div
+                    id="traffic-rate"
+                    class="traffic-value"
+                >
+                    –
+                </div>
+
+            </div>
+
+
+
+            <div class="traffic-item">
+
+                <div class="traffic-label">
+                    DATA interval
+                </div>
+
+                <div
+                    id="traffic-interval"
+                    class="traffic-value"
+                >
+                    –
+                </div>
+
+            </div>
+
+
+
+            <div class="traffic-item">
+
+                <div class="traffic-label">
+                    DATA packet size
+                </div>
+
+                <div
+                    id="traffic-size"
+                    class="traffic-value"
+                >
+                    –
+                </div>
+
+            </div>
+
+
+
+            <div class="traffic-item">
+
+                <div class="traffic-label">
+                    Relay capacity
+                </div>
+
+                <div
+                    id="traffic-capacity"
+                    class="traffic-value"
+                >
+                    –
+                </div>
+
+            </div>
+
+
+
+            <div class="traffic-item">
+
+                <div class="traffic-label">
+                    Mean UAV speed
+                </div>
+
+                <div
+                    id="traffic-speed"
+                    class="traffic-value"
+                >
+                    –
+                </div>
+
+            </div>
+
+
+
+            <div class="traffic-item">
+
+                <div class="traffic-label">
+                    Number of UAVs
+                </div>
+
+                <div
+                    id="traffic-uavs"
+                    class="traffic-value"
+                >
+                    –
+                </div>
+
+            </div>
+
+
+
+            <div class="traffic-item">
+
+                <div class="traffic-label">
+                    HELLO interval
+                </div>
+
+                <div
+                    id="hello-interval"
+                    class="traffic-value"
+                >
+                    –
+                </div>
+
+            </div>
+
+
+
+            <div class="traffic-item">
+
+                <div class="traffic-label">
+                    HELLO frequency / UAV
+                </div>
+
+                <div
+                    id="hello-frequency"
+                    class="traffic-value"
+                >
+                    –
+                </div>
+
+            </div>
+
+
+
+            <div class="traffic-item">
+
+                <div class="traffic-label">
+                    HELLO generated
+                </div>
+
+                <div
+                    id="hello-generated"
+                    class="traffic-value"
+                >
+                    –
+                </div>
+
+            </div>
+
+
+        </div>
+
+    </section>
+
+
+
+    <!-- ============================================================
+         MAIN CHARTS
+         ============================================================ -->
+
+    <section class="grid two-col">
+
+
+        <!-- =========================
+             PDR VS TIME
+             ========================= -->
+
+        <article class="panel">
+
+            <h2>
+                PDR vs Simulation Time
+            </h2>
+
+            <p class="section-subtitle">
+
+                X = Simulation Time (s).
+                Y = PDR (%).
+                Data from comparison_results.json.
+
+            </p>
+
+
+            <div class="chart-wrap">
+
+                <canvas
+                    id="pdr-time-chart">
+                </canvas>
+
+            </div>
+
+        </article>
+
+
+
+        <!-- =========================
+             CUMULATIVE PACKETS
+             ========================= -->
+
+        <article class="panel">
+
+            <h2>
+                Cumulative delivered DATA packets
+            </h2>
+
+            <p class="section-subtitle">
+
+                Generated and successfully delivered
+                DATA packets over simulation time.
+
+            </p>
+
+
+            <div class="chart-wrap">
+
+                <canvas
+                    id="delivery-chart">
+                </canvas>
+
+            </div>
+
+        </article>
+
+
+    </section>
+
+
+
+    <!-- ============================================================
+         FLOW EXPERIMENT
+         ============================================================ -->
+
+    <section class="panel">
+
+        <h2>
+            PDR vs DATA Flow
+        </h2>
+
+        <p class="section-subtitle">
+
+            X = DATA flow (packets/s).
+            Y = PDR (%).
+
+        </p>
+
+
+        <div class="experiment-tools">
+
+            <input
+                id="flow-files"
+                type="file"
+                accept=".json"
+                multiple
+            >
+
+
+            <button
+                id="clear-flow"
+                type="button"
+            >
+                Clear flow results
+            </button>
+
+
+            <span
+                id="flow-count"
+                class="loaded-count"
+            >
+                0 point(s) loaded.
+            </span>
+
+        </div>
+
+
+
+        <div class="table-wrap">
+
+            <table>
+
+                <thead>
+
+                    <tr>
+
+                        <th>
+                            File
+                        </th>
+
+                        <th>
+                            pps
+                        </th>
+
+                        <th>
+                            LLM PDR
+                        </th>
+
+                        <th>
+                            Q-FANET PDR
+                        </th>
+
+                    </tr>
+
+                </thead>
+
+
+                <tbody id="flow-table">
+
+                    <tr>
+
+                        <td
+                            colspan="4"
+                            class="empty"
+                        >
+                            No results loaded.
+                        </td>
+
+                    </tr>
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+
+        <div class="chart-wrap experiment">
+
+            <canvas
+                id="flow-chart">
+            </canvas>
+
+        </div>
+
+    </section>
+
+
+
+    <!-- ============================================================
+         SPEED EXPERIMENT
+         ============================================================ -->
+
+    <section class="panel">
+
+        <h2>
+            PDR vs UAV Speed
+        </h2>
+
+        <p class="section-subtitle">
+
+            X = Mean UAV speed (m/s).
+            Y = PDR (%).
+
+        </p>
+
+
+        <div class="experiment-tools">
+
+            <input
+                id="speed-files"
+                type="file"
+                accept=".json"
+                multiple
+            >
+
+
+            <button
+                id="clear-speed"
+                type="button"
+            >
+                Clear speed results
+            </button>
+
+
+            <span
+                id="speed-count"
+                class="loaded-count"
+            >
+                0 point(s) loaded.
+            </span>
+
+        </div>
+
+
+
+        <div class="table-wrap">
+
+            <table>
+
+                <thead>
+
+                    <tr>
+
+                        <th>
+                            File
+                        </th>
+
+                        <th>
+                            m/s
+                        </th>
+
+                        <th>
+                            LLM PDR
+                        </th>
+
+                        <th>
+                            Q-FANET PDR
+                        </th>
+
+                    </tr>
+
+                </thead>
+
+
+                <tbody id="speed-table">
+
+                    <tr>
+
+                        <td
+                            colspan="4"
+                            class="empty"
+                        >
+                            No results loaded.
+                        </td>
+
+                    </tr>
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+
+        <div class="chart-wrap experiment">
+
+            <canvas
+                id="speed-chart">
+            </canvas>
+
+        </div>
+
+    </section>
+
+
+
+    <!-- ============================================================
+         UAV NUMBER EXPERIMENT
+         ============================================================ -->
+
+    <section class="panel">
+
+        <h2>
+            PDR vs Number of UAV Nodes
+        </h2>
+
+        <p class="section-subtitle">
+
+            X = Number of UAVs.
+            Y = PDR (%).
+
+        </p>
+
+
+        <div class="experiment-tools">
+
+            <input
+                id="node-files"
+                type="file"
+                accept=".json"
+                multiple
+            >
+
+
+            <button
+                id="clear-nodes"
+                type="button"
+            >
+                Clear node results
+            </button>
+
+
+            <span
+                id="nodes-count"
+                class="loaded-count"
+            >
+                0 point(s) loaded.
+            </span>
+
+        </div>
+
+
+
+        <div class="table-wrap">
+
+            <table>
+
+                <thead>
+
+                    <tr>
+
+                        <th>
+                            File
+                        </th>
+
+                        <th>
+                            UAV
+                        </th>
+
+                        <th>
+                            LLM PDR
+                        </th>
+
+                        <th>
+                            Q-FANET PDR
+                        </th>
+
+                    </tr>
+
+                </thead>
+
+
+                <tbody id="nodes-table">
+
+                    <tr>
+
+                        <td
+                            colspan="4"
+                            class="empty"
+                        >
+                            No results loaded.
+                        </td>
+
+                    </tr>
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+
+        <div class="chart-wrap experiment">
+
+            <canvas
+                id="nodes-chart">
+            </canvas>
+
+        </div>
+
+    </section>
+
+
+
+    <!-- ============================================================
+         GENERATED PDR PNG
+         ============================================================ -->
+
+    <section class="panel image-panel">
+
+        <h2>
+            Generated PDR per Time figure
+        </h2>
+
+
+        <p class="section-subtitle">
+
+            This image must represent the same
+            comparison_results.json used by the dashboard.
+
+        </p>
+
+
+        <img
+            id="pdr-image"
+            class="pdr-image"
+            alt="PDR versus simulation time"
+        >
+
+
+        <div
+            id="pdr-image-error"
+            class="image-error"
+        >
+            charts/pdr_vs_time.png is not available.
+        </div>
+
+
+        <button
+            id="refresh-image"
+            type="button"
+        >
+            Refresh image
+        </button>
+
+
+        <div
+            id="image-source-note"
+            class="small-note"
+        >
+            Waiting for comparison_results.json.
+        </div>
+
+    </section>
+
+
+
+    <!-- ============================================================
+         GROUND STATION HISTORY
+         ============================================================ -->
+
+    <section class="panel">
+
+        <h2>
+            Ground Station — DATA packet reception history
+        </h2>
+
+
+        <p class="section-subtitle">
+
+            Successful DATA deliveries received by
+            the Ground Station.
+
+        </p>
+
+
+        <div
+            id="gs-status"
+            class="small-note"
+        >
+            No results loaded.
+        </div>
+
+
+        <div class="table-wrap">
+
+            <table>
+
+                <thead>
+
+                    <tr>
+
+                        <th>
+                            System
+                        </th>
+
+                        <th>
+                            Packet ID
+                        </th>
+
+                        <th>
+                            Created at
+                        </th>
+
+                        <th>
+                            Received at GS
+                        </th>
+
+                        <th>
+                            E2E delay
+                        </th>
+
+                        <th>
+                            Hops
+                        </th>
+
+                        <th>
+                            Deadline margin
+                        </th>
+
+                        <th>
+                            Path
+                        </th>
+
+                    </tr>
+
+                </thead>
+
+
+                <tbody id="gs-history">
+
+                    <tr>
+
+                        <td
+                            colspan="8"
+                            class="empty"
+                        >
+                            No packet received.
+                        </td>
+
+                    </tr>
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </section>
+
+
+
+    <!-- ============================================================
+         FINAL PACKET STATES
+         ============================================================ -->
+
+    <section class="panel">
+
+        <h2>
+            Final DATA packet states
+        </h2>
+
+
+        <p class="section-subtitle">
+
+            Latest known location and status
+            for each DATA packet.
+
+        </p>
+
+
+        <div class="table-wrap">
+
+            <table>
+
+                <thead>
+
+                    <tr>
+
+                        <th>
+                            System
+                        </th>
+
+                        <th>
+                            Packet ID
+                        </th>
+
+                        <th>
+                            Current node
+                        </th>
+
+                        <th>
+                            Status
+                        </th>
+
+                        <th>
+                            Hops
+                        </th>
+
+                        <th>
+                            Path
+                        </th>
+
+                    </tr>
+
+                </thead>
+
+
+                <tbody id="packet-states">
+
+                    <tr>
+
+                        <td
+                            colspan="6"
+                            class="empty"
+                        >
+                            No results loaded.
+                        </td>
+
+                    </tr>
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </section>
+
+
+
+    <div class="footer">
+
+        FANET simulation dashboard
+
+    </div>
+
+
+</main>
+
+
+
+<script>
+
+"use strict";
+
+
+/* ===============================================================
+   GLOBAL STATE
+   =============================================================== */
+
+const state = {
+
+    comparison: null,
+
+    experiments: {
+
+        flow: [],
+
+        speed: [],
+
+        nodes: []
+
+    },
+
+    charts: {
+
+        pdrTime: null,
+
+        delivery: null,
+
+        flow: null,
+
+        speed: null,
+
+        nodes: null
+
+    },
+
+    manualComparisonLoaded: false
+};
+
+
+
+/* ===============================================================
+   SIMPLE HELPERS
+   =============================================================== */
+
+const $ = (id) =>
+    document.getElementById(id);
+
+
+
+function setText(
+    id,
+    value
+) {
+
+    const element =
+        $(id);
+
+    if (element) {
+
+        element.textContent =
+            value ?? "–";
+    }
+}
+
+
+
+function numberOrNull(
+    value
+) {
+
+    const number =
+        Number(value);
+
+    return Number.isFinite(number)
+        ? number
+        : null;
+}
+
+
+
+function fmtPercent(
+    value
+) {
+
+    const number =
+        numberOrNull(value);
+
+    if (number === null) {
+
+        return "–";
+    }
+
+    return (
+        number.toFixed(2)
+        + "%"
+    );
+}
+
+
+
+function fmtSeconds(
+    value
+) {
+
+    const number =
+        numberOrNull(value);
+
+    if (number === null) {
+
+        return "–";
+    }
+
+    return (
+        number.toFixed(2)
+        + " s"
+    );
+}
+
+
+
+function fmtMilliseconds(
+    value
+) {
+
+    const number =
+        numberOrNull(value);
+
+    if (number === null) {
+
+        return "–";
+    }
+
+    return (
+        number.toFixed(1)
+        + " ms"
+    );
+}
+
+
+
+function escapeHtml(
+    value
+) {
+
+    return String(
+        value ?? ""
+    )
+
+    .replaceAll(
+        "&",
+        "&amp;"
+    )
+
+    .replaceAll(
+        "<",
+        "&lt;"
+    )
+
+    .replaceAll(
+        ">",
+        "&gt;"
+    )
+
+    .replaceAll(
+        '"',
+        "&quot;"
+    )
+
+    .replaceAll(
+        "'",
+        "&#039;"
+    );
+}
+
+
+
+/* ===============================================================
+   PACKET STATUS
+   =============================================================== */
+
+function statusBadge(
+    status
+) {
+
+    const text =
+        String(
+            status ?? "UNKNOWN"
+        );
+
+    let className =
+        "neutral";
+
+
+    if (
+        text === "DELIVERED"
+    ) {
+
+        className =
+            "good";
+    }
+
+
+    if (
+        text.includes("DROP")
+        ||
+        text.includes("EXPIRED")
+    ) {
+
+        className =
+            "bad";
+    }
+
+
+    return (
+        `<span class="badge ${className}">`
+        +
+        escapeHtml(text)
+        +
+        `</span>`
+    );
+}
+
+
+
+/* ===============================================================
+   PACKET PATH
+   =============================================================== */
+
+function packetPath(
+    record
+) {
+
+    if (!record) {
+
+        return "–";
+    }
+
+
+    if (
+        record.full_path
+    ) {
+
+        return String(
+            record.full_path
+        );
+    }
+
+
+    if (
+        record.path
+    ) {
+
+        return String(
+            record.path
+        );
+    }
+
+
+    const trajectory =
+        Array.isArray(
+            record.trajectory
+        )
+        ? record.trajectory
+        : [];
+
+
+    const nodes =
+        [];
+
+
+    for (
+        const event
+        of trajectory
+    ) {
+
+        const node =
+            event?.node;
+
+
+        if (!node) {
+
+            continue;
+        }
+
+
+        if (
+            nodes.length === 0
+            ||
+            nodes[
+                nodes.length - 1
+            ] !== node
+        ) {
+
+            nodes.push(
+                String(node)
+            );
+        }
+    }
+
+
+    return (
+        nodes.length
+        ? nodes.join(
+            " -> "
+        )
+        : "–"
+    );
+}
+
+
+
+/* ===============================================================
+   UTF-8 JSON FETCH
+   =============================================================== */
+
+async function fetchJsonUtf8(
+    path
+) {
+
+    const response =
+        await fetch(
+
+            `${path}?t=${Date.now()}`,
+
+            {
+
+                cache:
+                    "no-store"
+
+            }
+
+        );
+
+
+    if (
+        !response.ok
+    ) {
+
+        throw new Error(
+
+            `HTTP ${response.status}`
+
+        );
+    }
+
+
+    const buffer =
+        await response.arrayBuffer();
+
+
+    const decoder =
+        new TextDecoder(
+
+            "utf-8",
+
+            {
+
+                fatal:
+                    true
+
+            }
+
+        );
+
+
+    const text =
+        decoder.decode(
+            buffer
+        );
+
+
+    return JSON.parse(
+        text
+    );
+}
+
+
+
+/* ===============================================================
+   MANUAL JSON FILE
+   =============================================================== */
+
+async function readJsonFile(
+    file
+) {
+
+    const buffer =
+        await file.arrayBuffer();
+
+
+    const decoder =
+        new TextDecoder(
+
+            "utf-8",
+
+            {
+
+                fatal:
+                    true
+
+            }
+
+        );
+
+
+    return JSON.parse(
+
+        decoder.decode(
+            buffer
+        )
+
+    );
+}
+
+
+
+/* ===============================================================
+   CHART OPTIONS
+   =============================================================== */
+
+function lineOptions(
+    {
+        xTitle,
+        yTitle,
+        yMin = 0,
+        yMax = 100,
+        xLinear = true
+    }
+) {
+
+    return {
+
+        responsive:
+            true,
+
+        maintainAspectRatio:
+            false,
+
+        animation:
+            false,
+
+        interaction: {
+
+            mode:
+                "nearest",
+
+            intersect:
+                false
+
+        },
+
+        plugins: {
+
+            legend: {
+
+                labels: {
+
+                    color:
+                        "#dcecff"
+
+                }
+
+            }
+
+        },
+
+
+        scales: {
+
+            x: {
+
+                type:
+                    xLinear
+                    ? "linear"
+                    : "category",
+
+                title: {
+
+                    display:
+                        true,
+
+                    text:
+                        xTitle,
+
+                    color:
+                        "#9bc5eb"
+
+                },
+
+                ticks: {
+
+                    color:
+                        "#9eb0c5"
+
+                },
+
+                grid: {
+
+                    color:
+                        "rgba(160,190,220,0.10)"
+
+                }
+
+            },
+
+
+            y: {
+
+                min:
+                    yMin,
+
+                max:
+                    yMax,
+
+                title: {
+
+                    display:
+                        true,
+
+                    text:
+                        yTitle,
+
+                    color:
+                        "#9bc5eb"
+
+                },
+
+                ticks: {
+
+                    color:
+                        "#9eb0c5"
+
+                },
+
+                grid: {
+
+                    color:
+                        "rgba(160,190,220,0.10)"
+
+                }
+
+            }
+
+        }
+
+    };
+}
+
+
+
+/* ===============================================================
+   CREATE / REPLACE CHART
+   =============================================================== */
+
+function replaceChart(
+    name,
+    canvasId,
+    config
+) {
+
+    if (
+        state.charts[
+            name
+        ]
+    ) {
+
+        state.charts[
+            name
+        ].destroy();
+    }
+
+
+    state.charts[
+        name
+    ] =
+        new Chart(
+
+            $(canvasId),
+
+            config
+
+        );
+}
+
+
+
+/* ===============================================================
+   MAIN comparison_results.json
+   =============================================================== */
+
+function renderComparison(
+    data
+) {
+
+    state.comparison =
+        data;
+
+
+    const summary =
+        data?.summary
+        ?? {};
+
+
+    const llmSummary =
+        summary?.llm
+        ?? {};
+
+
+    const qSummary =
+        summary?.qfanet
+        ?? {};
+
+
+    const traffic =
+        data?.traffic_design
+        ?? {};
+
+
+    const params =
+        summary?.params
+        ?? {};
+
+
+
+    /* ===========================================================
+       KPI
+       =========================================================== */
+
+    setText(
+
+        "kpi-generated",
+
+        summary.total_generated
+        ?? "–"
+
+    );
+
+
+    setText(
+
+        "kpi-llm-pdr",
+
+        fmtPercent(
+            llmSummary.pdr_pct
+        )
+
+    );
+
+
+    setText(
+
+        "kpi-llm-delivered",
+
+        llmSummary.delivered
+        != null
+
+        ? (
+            llmSummary.delivered
+            +
+            " DATA packets delivered"
+        )
+
+        : "–"
+
+    );
+
+
+    setText(
+
+        "kpi-qfanet-pdr",
+
+        fmtPercent(
+            qSummary.pdr_pct
+        )
+
+    );
+
+
+    setText(
+
+        "kpi-qfanet-delivered",
+
+        qSummary.delivered
+        != null
+
+        ? (
+            qSummary.delivered
+            +
+            " DATA packets delivered"
+        )
+
+        : "–"
+
+    );
+
+
+    setText(
+
+        "kpi-duration",
+
+        fmtSeconds(
+            summary.simulation_duration_s
+        )
+
+    );
+
+
+    setText(
+
+        "kpi-session",
+
+        data.session_id
+        ?? "–"
+
+    );
+
+
+
+    /* ===========================================================
+       TRAFFIC
+       =========================================================== */
+
+    const packetRate =
+
+        traffic.packet_rate_pps
+        ??
+        params.packet_rate_pps;
+
+
+    const interval =
+
+        traffic.data_interval_ms
+        ??
+        params.data_interval_ms;
+
+
+    const packetSize =
+
+        traffic.data_packet_size_bytes
+        ??
+        params.data_packet_size_bytes;
+
+
+    const relayCapacity =
+
+        traffic.relay_capacity_pps
+        ??
+        params.relay_capacity_pps;
+
+
+    const helloInterval =
+
+        traffic.hello_interval_ms
+        ??
+        params.hello_interval_ms;
+
+
+    const helloFrequency =
+
+        traffic.hello_frequency_hz_per_uav
+        ??
+        (
+
+            numberOrNull(
+                helloInterval
+            ) !== null
+
+            &&
+            Number(
+                helloInterval
+            ) > 0
+
+            ? (
+                1000
+                /
+                Number(
+                    helloInterval
+                )
+            )
+
+            : null
+
+        );
+
+
+    setText(
+
+        "traffic-rate",
+
+        numberOrNull(
+            packetRate
+        ) !== null
+
+        ? (
+            Number(
+                packetRate
+            ).toFixed(0)
+            +
+            " packet/s"
+        )
+
+        : "–"
+
+    );
+
+
+    setText(
+
+        "traffic-interval",
+
+        numberOrNull(
+            interval
+        ) !== null
+
+        ? (
+            Number(
+                interval
+            ).toFixed(0)
+            +
+            " ms"
+        )
+
+        : "–"
+
+    );
+
+
+    setText(
+
+        "traffic-size",
+
+        numberOrNull(
+            packetSize
+        ) !== null
+
+        ? (
+            Number(
+                packetSize
+            ).toFixed(0)
+            +
+            " Bytes"
+        )
+
+        : "–"
+
+    );
+
+
+    setText(
+
+        "traffic-capacity",
+
+        numberOrNull(
+            relayCapacity
+        ) !== null
+
+        ? (
+            Number(
+                relayCapacity
+            ).toFixed(0)
+            +
+            " packet/s/UAV"
+        )
+
+        : "–"
+
+    );
+
+
+    setText(
+
+        "traffic-speed",
+
+        numberOrNull(
+            params.mean_speed_mps
+        ) !== null
+
+        ? (
+            Number(
+                params.mean_speed_mps
+            ).toFixed(0)
+            +
+            " m/s"
+        )
+
+        : "–"
+
+    );
+
+
+    setText(
+
+        "traffic-uavs",
+
+        params.num_uavs
+        ?? "–"
+
+    );
+
+
+    setText(
+
+        "hello-interval",
+
+        numberOrNull(
+            helloInterval
+        ) !== null
+
+        ? (
+            Number(
+                helloInterval
+            ).toFixed(0)
+            +
+            " ms"
+        )
+
+        : "–"
+
+    );
+
+
+    setText(
+
+        "hello-frequency",
+
+        numberOrNull(
+            helloFrequency
+        ) !== null
+
+        ? (
+            Number(
+                helloFrequency
+            ).toFixed(0)
+            +
+            " Hz"
+        )
+
+        : "–"
+
+    );
+
+
+    setText(
+
+        "hello-generated",
+
+        traffic.hello_generated_total
+        ?? "–"
+
+    );
+
+
+
+    /* ===========================================================
+       IMPORTANT:
+       PDR vs SIMULATION TIME
+
+       X = comparison_results.json -> time_s
+
+       Y1 = comparison_results.json
+            -> llm_pdr_over_time
+
+       Y2 = comparison_results.json
+            -> qfanet_pdr_over_time
+       =========================================================== */
+
+    const times =
+
+        Array.isArray(
+            data.time_s
+        )
+
+        ? data.time_s.map(
+            Number
+        )
+
+        : [];
+
+
+    const llmPdr =
+
+        Array.isArray(
+            data.llm_pdr_over_time
+        )
+
+        ? data.llm_pdr_over_time.map(
+            Number
+        )
+
+        : [];
+
+
+    const qfanetPdr =
+
+        Array.isArray(
+            data.qfanet_pdr_over_time
+        )
+
+        ? data.qfanet_pdr_over_time.map(
+            Number
+        )
+
+        : [];
+
+
+    const length =
+
+        Math.min(
+
+            times.length,
+
+            llmPdr.length,
+
+            qfanetPdr.length
+
+        );
+
+
+    const llmPoints =
+        [];
+
+
+    const qfanetPoints =
+        [];
+
+
+    for (
+        let i = 0;
+        i < length;
+        i++
+    ) {
+
+        if (
+
+            Number.isFinite(
+                times[i]
+            )
+
+            &&
+
+            Number.isFinite(
+                llmPdr[i]
+            )
+
+            &&
+
+            Number.isFinite(
+                qfanetPdr[i]
+            )
+
+        ) {
+
+            llmPoints.push({
+
+                x:
+                    times[i],
+
+                y:
+                    llmPdr[i]
+
+            });
+
+
+            qfanetPoints.push({
+
+                x:
+                    times[i],
+
+                y:
+                    qfanetPdr[i]
+
+            });
+        }
+    }
+
+
+
+    /* ===========================================================
+       CREATE PDR CHART
+       =========================================================== */
+
+    replaceChart(
+
+        "pdrTime",
+
+        "pdr-time-chart",
+
+        {
+
+            type:
+                "line",
+
+
+            data: {
+
+                datasets: [
+
+
+                    {
+
+                        label:
+                            "LLM + RL",
+
+                        data:
+                            llmPoints,
+
+                        borderColor:
+                            "#4f95e8",
+
+                        backgroundColor:
+                            "#4f95e8",
+
+                        borderWidth:
+                            2,
+
+                        pointRadius:
+                            3,
+
+                        pointHoverRadius:
+                            5,
+
+                        tension:
+                            0
+
+                    },
+
+
+                    {
+
+                        label:
+                            "Q-FANET",
+
+                        data:
+                            qfanetPoints,
+
+                        borderColor:
+                            "#ff654d",
+
+                        backgroundColor:
+                            "#ff654d",
+
+                        borderWidth:
+                            2,
+
+                        pointRadius:
+                            3,
+
+                        pointHoverRadius:
+                            5,
+
+                        tension:
+                            0
+
+                    }
+
+                ]
+
+            },
+
+
+            options:
+
+                lineOptions({
+
+                    xTitle:
+                        "Simulation Time (s)",
+
+                    yTitle:
+                        "PDR (%)",
+
+                    yMin:
+                        0,
+
+                    yMax:
+                        100,
+
+                    xLinear:
+                        true
+
+                })
+
+        }
+
+    );
+
+
+
+    /* ===========================================================
+       CUMULATIVE DELIVERED
+       =========================================================== */
+
+    const generated =
+
+        Array.isArray(
+            data.generated_cumulative
+        )
+
+        ? data.generated_cumulative.map(
+            Number
+        )
+
+        : [];
+
+
+    const llmDelivered =
+
+        Array.isArray(
+            data.llm_cumulative_delivered
+        )
+
+        ? data.llm_cumulative_delivered.map(
+            Number
+        )
+
+        : [];
+
+
+    const qDelivered =
+
+        Array.isArray(
+            data.qfanet_cumulative_delivered
+        )
+
+        ? data.qfanet_cumulative_delivered.map(
+            Number
+        )
+
+        : [];
+
+
+
+    function makeXY(
+        values
+    ) {
+
+        const n =
+            Math.min(
+
+                times.length,
+
+                values.length
+
+            );
+
+
+        const points =
+            [];
+
+
+        for (
+            let i = 0;
+            i < n;
+            i++
+        ) {
+
+            if (
+
+                Number.isFinite(
+                    times[i]
+                )
+
+                &&
+
+                Number.isFinite(
+                    values[i]
+                )
+
+            ) {
+
+                points.push({
+
+                    x:
+                        times[i],
+
+                    y:
+                        values[i]
+
+                });
+
+            }
+        }
+
+
+        return points;
+    }
+
+
+
+    const maximumPackets =
+
+        Math.max(
+
+            1,
+
+            ...generated.filter(
+                Number.isFinite
+            ),
+
+            ...llmDelivered.filter(
+                Number.isFinite
+            ),
+
+            ...qDelivered.filter(
+                Number.isFinite
+            )
+
+        );
+
+
+
+    replaceChart(
+
+        "delivery",
+
+        "delivery-chart",
+
+        {
+
+            type:
+                "line",
+
+
+            data: {
+
+                datasets: [
+
+
+                    {
+
+                        label:
+                            "Generated",
+
+                        data:
+                            makeXY(
+                                generated
+                            ),
+
+                        borderColor:
+                            "#9eb0c5",
+
+                        backgroundColor:
+                            "#9eb0c5",
+
+                        borderDash:
+                            [6, 5],
+
+                        borderWidth:
+                            2,
+
+                        pointRadius:
+                            2,
+
+                        tension:
+                            0
+
+                    },
+
+
+                    {
+
+                        label:
+                            "LLM + RL delivered",
+
+                        data:
+                            makeXY(
+                                llmDelivered
+                            ),
+
+                        borderColor:
+                            "#4f95e8",
+
+                        backgroundColor:
+                            "#4f95e8",
+
+                        borderWidth:
+                            2,
+
+                        pointRadius:
+                            3,
+
+                        tension:
+                            0
+
+                    },
+
+
+                    {
+
+                        label:
+                            "Q-FANET delivered",
+
+                        data:
+                            makeXY(
+                                qDelivered
+                            ),
+
+                        borderColor:
+                            "#ff654d",
+
+                        backgroundColor:
+                            "#ff654d",
+
+                        borderWidth:
+                            2,
+
+                        pointRadius:
+                            3,
+
+                        tension:
+                            0
+
+                    }
+
+                ]
+
+            },
+
+
+            options:
+
+                lineOptions({
+
+                    xTitle:
+                        "Simulation Time (s)",
+
+                    yTitle:
+                        "DATA packets",
+
+                    yMin:
+                        0,
+
+                    yMax:
+                        Math.ceil(
+                            maximumPackets
+                            *
+                            1.05
+                        ),
+
+                    xLinear:
+                        true
+
+                })
+
+        }
+
+    );
+
+
+
+    /* ===========================================================
+       OTHER TABLES
+       =========================================================== */
+
+    renderGroundStationHistory(
+        data
+    );
+
+
+    renderFinalPacketStates(
+        data
+    );
+
+
+    /* ===========================================================
+       PNG REFRESH
+       =========================================================== */
+
+    refreshPdrImage();
+
+
+
+    const finalTime =
+
+        times.length
+
+        ? times[
+            times.length - 1
+        ]
+
+        : summary.simulation_duration_s;
+
+
+    setText(
+
+        "image-source-note",
+
+        "Source: comparison_results.json"
+        +
+        " | X = time_s"
+        +
+        " | Y = PDR (%)"
+        +
+        " | final LLM+RL = "
+        +
+        fmtPercent(
+            llmSummary.pdr_pct
+        )
+        +
+        " | final Q-FANET = "
+        +
+        fmtPercent(
+            qSummary.pdr_pct
+        )
+        +
+        " | final time = "
+        +
+        fmtSeconds(
+            finalTime
+        )
+
+    );
+
+}
+
+
+
+/* ===============================================================
+   GROUND STATION HISTORY
+   =============================================================== */
+
+function renderGroundStationHistory(
+    data
+) {
+
+    const llmRecords =
+
+        Array.isArray(
+            data?.llm_delivery_records
+        )
+
+        ? data.llm_delivery_records.map(
+
+            record => ({
+
+                ...record,
+
+                _system:
+                    "LLM + RL"
+
+            })
+
+        )
+
+        : [];
+
+
+    const qRecords =
+
+        Array.isArray(
+            data?.qfanet_delivery_records
+        )
+
+        ? data.qfanet_delivery_records.map(
+
+            record => ({
+
+                ...record,
+
+                _system:
+                    "Q-FANET"
+
+            })
+
+        )
+
+        : [];
+
+
+    const rows = [
+
+        ...llmRecords,
+
+        ...qRecords
+
+    ];
+
+
+    rows.sort(
+
+        (a, b) =>
+
+            Number(
+
+                a.received_at_ms
+                ??
+                a.time_ms
+                ??
+                0
+
+            )
+
+            -
+
+            Number(
+
+                b.received_at_ms
+                ??
+                b.time_ms
+                ??
+                0
+
+            )
+
+    );
+
+
+    setText(
+
+        "gs-status",
+
+        rows.length
+
+        ? (
+            rows.length
+            +
+            " successful packet reception record(s)."
+        )
+
+        : "No packet received."
+
+    );
+
+
+    const tbody =
+        $("gs-history");
+
+
+    if (
+        rows.length === 0
+    ) {
+
+        tbody.innerHTML =
+
+            '<tr>'
+            +
+            '<td colspan="8" class="empty">'
+            +
+            'No packet received.'
+            +
+            '</td>'
+            +
+            '</tr>';
+
+        return;
+    }
+
+
+
+    tbody.innerHTML =
+
+        rows.map(
+
+            record => {
+
+
+                const systemClass =
+
+                    record._system
+                    ===
+                    "LLM + RL"
+
+                    ? "llm"
+
+                    : "qfanet";
+
+
+                const createdS =
+
+                    numberOrNull(
+                        record.created_at_s
+                    )
+
+                    ??
+
+                    (
+
+                        numberOrNull(
+                            record.created_at_ms
+                        )
+                        !== null
+
+                        ? (
+                            Number(
+                                record.created_at_ms
+                            )
+                            /
+                            1000
+                        )
+
+                        : null
+
+                    );
+
+
+                const receivedS =
+
+                    numberOrNull(
+                        record.received_at_s
+                    )
+
+                    ??
+
+                    (
+
+                        numberOrNull(
+                            record.received_at_ms
+                        )
+                        !== null
+
+                        ? (
+                            Number(
+                                record.received_at_ms
+                            )
+                            /
+                            1000
+                        )
+
+                        : null
+
+                    );
+
+
+                return `
+
+                    <tr>
+
+                        <td class="${systemClass}">
+                            ${escapeHtml(record._system)}
+                        </td>
+
+                        <td class="mono">
+                            ${escapeHtml(
+                                record.packet_id
+                                ??
+                                record.batch_id
+                                ??
+                                "–"
+                            )}
+                        </td>
+
+                        <td>
+
+                            ${
+                                createdS === null
+
+                                ? "–"
+
+                                : (
+                                    createdS.toFixed(3)
+                                    +
+                                    " s"
+                                )
+                            }
+
+                        </td>
+
+                        <td>
+
+                            ${
+                                receivedS === null
+
+                                ? "–"
+
+                                : (
+                                    receivedS.toFixed(3)
+                                    +
+                                    " s"
+                                )
+                            }
+
+                        </td>
+
+                        <td>
+                            ${fmtMilliseconds(
+                                record.latency_ms
+                            )}
+                        </td>
+
+                        <td>
+                            ${escapeHtml(
+                                record.hops
+                                ??
+                                "–"
+                            )}
+                        </td>
+
+                        <td>
+                            ${fmtMilliseconds(
+                                record.deadline_margin_ms
+                            )}
+                        </td>
+
+                        <td class="mono">
+                            ${escapeHtml(
+                                record.full_path
+                                ??
+                                record.path
+                                ??
+                                packetPath(record)
+                            )}
+                        </td>
+
+                    </tr>
+
+                `;
+
+            }
+
+        ).join("");
+
+}
+
+
+
+/* ===============================================================
+   FINAL PACKET STATES
+   =============================================================== */
+
+function renderFinalPacketStates(
+    data
+) {
+
+    const tracking =
+
+        data?.packet_tracking
+        ??
+        {};
+
+
+    const systems = [
+
+        {
+
+            key:
+                "llm_rl",
+
+            label:
+                "LLM + RL",
+
+            className:
+                "llm"
+
+        },
+
+
+        {
+
+            key:
+                "qfanet",
+
+            label:
+                "Q-FANET",
+
+            className:
+                "qfanet"
+
+        }
+
+    ];
+
+
+    const rows =
+        [];
+
+
+    for (
+        const system
+        of systems
+    ) {
+
+
+        const records =
+
+            tracking?.[
+                system.key
+            ]
+
+            &&
+
+            typeof tracking[
+                system.key
+            ] === "object"
+
+            ? tracking[
+                system.key
+            ]
+
+            : {};
+
+
+        for (
+            const [
+                packetId,
+                record
+            ]
+            of Object.entries(
+                records
+            )
+        ) {
+
+            rows.push({
+
+                system:
+                    system.label,
+
+                className:
+                    system.className,
+
+                packetId,
+
+                record
+
+            });
+
+        }
+
+    }
+
+
+
+    rows.sort(
+
+        (
+            a,
+            b
+        ) => {
+
+            const comparePacket =
+
+                String(
+                    a.packetId
+                ).localeCompare(
+
+                    String(
+                        b.packetId
+                    ),
+
+                    undefined,
+
+                    {
+
+                        numeric:
+                            true
+
+                    }
+
+                );
+
+
+            if (
+                comparePacket !== 0
+            ) {
+
+                return comparePacket;
+            }
+
+
+            return a.system.localeCompare(
+                b.system
+            );
+
+        }
+
+    );
+
+
+    const tbody =
+        $("packet-states");
+
+
+    if (
+        rows.length === 0
+    ) {
+
+        tbody.innerHTML =
+
+            '<tr>'
+            +
+            '<td colspan="6" class="empty">'
+            +
+            'No results loaded.'
+            +
+            '</td>'
+            +
+            '</tr>';
+
+        return;
+    }
+
+
+
+    tbody.innerHTML =
+
+        rows.map(
+
+            (
+                {
+                    system,
+                    className,
+                    packetId,
+                    record
+                }
+            ) => `
+
+                <tr>
+
+                    <td class="${className}">
+                        ${escapeHtml(system)}
+                    </td>
+
+                    <td class="mono">
+                        ${escapeHtml(
+                            record.packet_id
+                            ??
+                            packetId
+                        )}
+                    </td>
+
+                    <td>
+                        ${escapeHtml(
+                            record.current_node
+                            ??
+                            "–"
+                        )}
+                    </td>
+
+                    <td>
+                        ${statusBadge(
+                            record.status
+                        )}
+                    </td>
+
+                    <td>
+                        ${escapeHtml(
+                            record.hops
+                            ??
+                            "–"
+                        )}
+                    </td>
+
+                    <td class="mono">
+                        ${escapeHtml(
+                            packetPath(
+                                record
+                            )
+                        )}
+                    </td>
+
+                </tr>
+
+            `
+
+        ).join("");
+
+}
+
+
+
+/* ===============================================================
+   EXPERIMENT CONFIGURATION
+   =============================================================== */
+
+function studyConfig(
+    study
+) {
+
+    const configs = {
+
+
+        flow: {
+
+            xKey:
+                "packet_rate_pps",
+
+            tableBody:
+                "flow-table",
+
+            count:
+                "flow-count",
+
+            chart:
+                "flow",
+
+            canvas:
+                "flow-chart",
+
+            xTitle:
+                "DATA Flow (packets/s)"
+
+        },
+
+
+        speed: {
+
+            xKey:
+                "mean_speed_mps",
+
+            tableBody:
+                "speed-table",
+
+            count:
+                "speed-count",
+
+            chart:
+                "speed",
+
+            canvas:
+                "speed-chart",
+
+            xTitle:
+                "Mean UAV Speed (m/s)"
+
+        },
+
+
+        nodes: {
+
+            xKey:
+                "num_uavs",
+
+            tableBody:
+                "nodes-table",
+
+            count:
+                "nodes-count",
+
+            chart:
+                "nodes",
+
+            canvas:
+                "nodes-chart",
+
+            xTitle:
+                "Number of UAVs"
+
+        }
+
+    };
+
+
+    return configs[
+        study
+    ];
+}
+
+
+
+/* ===============================================================
+   NORMALIZE EXPERIMENT RESULTS
+   =============================================================== */
+
+function normalizeStudyPoints(
+    study,
+    studyData
+) {
+
+    if (
+        !studyData
+    ) {
+
+        return [];
+    }
+
+
+    const points =
+
+        Array.isArray(
+            studyData.points
+        )
+
+        ? studyData.points
+
+        : [];
+
+
+    const config =
+        studyConfig(
+            study
+        );
+
+
+    return points
+
+        .map(
+
+            (
+                point,
+                index
+            ) => ({
+
+                label:
+
+                    point.file
+                    ??
+                    point.filename
+                    ??
+                    (
+                        `${study} point ${index + 1}`
+                    ),
+
+
+                x:
+
+                    numberOrNull(
+
+                        point.x
+                        ??
+                        point[
+                            config.xKey
+                        ]
+
+                    ),
+
+
+                llm:
+
+                    numberOrNull(
+
+                        point.llm_pdr_mean
+                        ??
+                        point.llm_pdr
+                        ??
+                        point?.summary?.llm?.pdr_pct
+
+                    ),
+
+
+                qfanet:
+
+                    numberOrNull(
+
+                        point.qfanet_pdr_mean
+                        ??
+                        point.qfanet_pdr
+                        ??
+                        point?.summary?.qfanet?.pdr_pct
+
+                    )
+
+            })
+
+        )
+
+        .filter(
+
+            point =>
+
+                point.x !== null
+
+                &&
+
+                point.llm !== null
+
+                &&
+
+                point.qfanet !== null
+
+        );
+
+}
+
+
+
+/* ===============================================================
+   RENDER ONE EXPERIMENT
+   =============================================================== */
+
+function renderStudy(
+    study
+) {
+
+    const config =
+        studyConfig(
+            study
+        );
+
+
+    const points =
+
+        [
+            ...state.experiments[
+                study
+            ]
+        ]
+
+        .filter(
+
+            point =>
+
+                numberOrNull(
+                    point.x
+                ) !== null
+
+                &&
+
+                numberOrNull(
+                    point.llm
+                ) !== null
+
+                &&
+
+                numberOrNull(
+                    point.qfanet
+                ) !== null
+
+        )
+
+        .sort(
+
+            (
+                a,
+                b
+            ) =>
+
+                Number(
+                    a.x
+                )
+
+                -
+
+                Number(
+                    b.x
+                )
+
+        );
+
+
+    setText(
+
+        config.count,
+
+        points.length
+        +
+        " point(s) loaded."
+
+    );
+
+
+    const tbody =
+
+        $(
+            config.tableBody
+        );
+
+
+    if (
+        points.length === 0
+    ) {
+
+        tbody.innerHTML =
+
+            '<tr>'
+            +
+            '<td colspan="4" class="empty">'
+            +
+            'No results loaded.'
+            +
+            '</td>'
+            +
+            '</tr>';
+
+    }
+
+    else {
+
+        tbody.innerHTML =
+
+            points.map(
+
+                point => `
+
+                    <tr>
+
+                        <td class="mono">
+                            ${escapeHtml(
+                                point.label
+                            )}
+                        </td>
+
+                        <td>
+                            ${escapeHtml(
+                                point.x
+                            )}
+                        </td>
+
+                        <td>
+                            ${fmtPercent(
+                                point.llm
+                            )}
+                        </td>
+
+                        <td>
+                            ${fmtPercent(
+                                point.qfanet
+                            )}
+                        </td>
+
+                    </tr>
+
+                `
+
+            ).join("");
+
+    }
+
+
+
+    replaceChart(
+
+        config.chart,
+
+        config.canvas,
+
+        {
+
+            type:
+                "line",
+
+
+            data: {
+
+                datasets: [
+
+
+                    {
+
+                        label:
+                            "LLM + RL",
+
+                        data:
+
+                            points.map(
+
+                                point => ({
+
+                                    x:
+                                        Number(
+                                            point.x
+                                        ),
+
+                                    y:
+                                        Number(
+                                            point.llm
+                                        )
+
+                                })
+
+                            ),
+
+                        borderColor:
+                            "#4f95e8",
+
+                        backgroundColor:
+                            "#4f95e8",
+
+                        borderWidth:
+                            2,
+
+                        pointRadius:
+                            4,
+
+                        tension:
+                            0
+
+                    },
+
+
+                    {
+
+                        label:
+                            "Q-FANET",
+
+                        data:
+
+                            points.map(
+
+                                point => ({
+
+                                    x:
+                                        Number(
+                                            point.x
+                                        ),
+
+                                    y:
+                                        Number(
+                                            point.qfanet
+                                        )
+
+                                })
+
+                            ),
+
+                        borderColor:
+                            "#ff654d",
+
+                        backgroundColor:
+                            "#ff654d",
+
+                        borderWidth:
+                            2,
+
+                        pointRadius:
+                            4,
+
+                        tension:
+                            0
+
+                    }
+
+                ]
+
+            },
+
+
+            options:
+
+                lineOptions({
+
+                    xTitle:
+                        config.xTitle,
+
+                    yTitle:
+                        "PDR (%)",
+
+                    yMin:
+                        0,
+
+                    yMax:
+                        100,
+
+                    xLinear:
+                        true
+
+                })
+
+        }
+
+    );
+
+}
+
+
+
+/* ===============================================================
+   RENDER ALL EXPERIMENTS
+   =============================================================== */
+
+function renderAllStudies() {
+
+    renderStudy(
+        "flow"
+    );
+
+
+    renderStudy(
+        "speed"
+    );
+
+
+    renderStudy(
+        "nodes"
+    );
+
+}
+
+
+
+/* ===============================================================
+   LOAD experiment_results.json
+   =============================================================== */
+
+async function loadExperimentAggregate() {
+
+    try {
+
+        const aggregate =
+
+            await fetchJsonUtf8(
+
+                "experiment_results.json"
+
+            );
+
+
+        const studies =
+
+            aggregate?.studies
+            ??
+            {};
+
+
+        state.experiments.flow =
+
+            normalizeStudyPoints(
+
+                "flow",
+
+                studies.flow
+
+            );
+
+
+        state.experiments.speed =
+
+            normalizeStudyPoints(
+
+                "speed",
+
+                studies.speed
+
+            );
+
+
+        state.experiments.nodes =
+
+            normalizeStudyPoints(
+
+                "nodes",
+
+                studies.nodes
+
+            );
+
+
+        renderAllStudies();
+
+    }
+
+    catch (
+        error
+    ) {
+
+        console.warn(
+
+            "experiment_results.json not loaded:",
+
+            error
+
+        );
+
+    }
+
+}
+
+
+
+/* ===============================================================
+   MANUAL EXPERIMENT FILE
+   =============================================================== */
+
+function experimentPointFromFile(
+    study,
+    fileName,
+    data
+) {
+
+    const summary =
+
+        data?.summary
+        ??
+        {};
+
+
+    const params =
+
+        summary?.params
+        ??
+        {};
+
+
+    let x =
+        null;
+
+
+
+    if (
+        study === "flow"
+    ) {
+
+        x =
+
+            numberOrNull(
+                params.packet_rate_pps
+            )
+
+            ??
+
+            numberOrNull(
+                data?.traffic_design?.packet_rate_pps
+            );
+
+    }
+
+
+
+    if (
+        study === "speed"
+    ) {
+
+        x =
+
+            numberOrNull(
+                params.mean_speed_mps
+            );
+
+    }
+
+
+
+    if (
+        study === "nodes"
+    ) {
+
+        x =
+
+            numberOrNull(
+                params.num_uavs
+            );
+
+    }
+
+
+
+    const llm =
+
+        numberOrNull(
+            summary?.llm?.pdr_pct
+        )
+
+        ??
+
+        numberOrNull(
+
+            Array.isArray(
+                data?.llm_pdr_over_time
+            )
+
+            ? data.llm_pdr_over_time.at(
+                -1
+            )
+
+            : null
+
+        );
+
+
+
+    const qfanet =
+
+        numberOrNull(
+            summary?.qfanet?.pdr_pct
+        )
+
+        ??
+
+        numberOrNull(
+
+            Array.isArray(
+                data?.qfanet_pdr_over_time
+            )
+
+            ? data.qfanet_pdr_over_time.at(
+                -1
+            )
+
+            : null
+
+        );
+
+
+
+    if (
+
+        x === null
+
+        ||
+
+        llm === null
+
+        ||
+
+        qfanet === null
+
+    ) {
+
+        throw new Error(
+
+            fileName
+            +
+            ": invalid experiment JSON"
+
+        );
+
+    }
+
+
+    return {
+
+        label:
+            fileName,
+
+        x,
+
+        llm,
+
+        qfanet
+
+    };
+
+}
+
+
+
+/* ===============================================================
+   LOAD MULTIPLE EXPERIMENT FILES
+   =============================================================== */
+
+async function handleExperimentFiles(
+    study,
+    files
+) {
+
+    const points =
+        [];
+
+
+    for (
+        const file
+        of files
+    ) {
+
+        const data =
+
+            await readJsonFile(
+                file
+            );
+
+
+        points.push(
+
+            experimentPointFromFile(
+
+                study,
+
+                file.name,
+
+                data
+
+            )
+
+        );
+
+    }
+
+
+    state.experiments[
+        study
+    ] =
+        points;
+
+
+    renderStudy(
+        study
+    );
+
+}
+
+
+
+/* ===============================================================
+   PDR PNG IMAGE
+   =============================================================== */
+
+function refreshPdrImage() {
+
+    const image =
+        $("pdr-image");
+
+
+    const errorBox =
+        $("pdr-image-error");
+
+
+    errorBox.style.display =
+        "none";
+
+
+    image.style.display =
+        "block";
+
+
+    /* -----------------------------------------------------------
+       IMPORTANT:
+       Date.now() prevents browser cache from showing an old run.
+       ----------------------------------------------------------- */
+
+    image.src =
+
+        "charts/pdr_vs_time.png?t="
+        +
+        Date.now();
+
+}
+
+
+
+/* ===============================================================
+   IMAGE ERROR / SUCCESS
+   =============================================================== */
+
+$("pdr-image").addEventListener(
+
+    "error",
+
+    () => {
+
+        $("pdr-image").style.display =
+            "none";
+
+
+        $("pdr-image-error").style.display =
+            "block";
+
+    }
+
+);
+
+
+
+$("pdr-image").addEventListener(
+
+    "load",
+
+    () => {
+
+        $("pdr-image").style.display =
+            "block";
+
+
+        $("pdr-image-error").style.display =
+            "none";
+
+    }
+
+);
+
+
+
+/* ===============================================================
+   AUTO LOAD comparison_results.json
+   =============================================================== */
+
+async function loadComparisonAutomatically() {
+
+    if (
+        state.manualComparisonLoaded
+    ) {
+
+        return;
+    }
+
+
+    try {
+
+        const data =
+
+            await fetchJsonUtf8(
+
+                "comparison_results.json"
+
+            );
+
+
+        renderComparison(
+            data
+        );
+
+
+        const status =
+            $("comparison-status");
+
+
+        status.className =
+            "status";
+
+
+        const currentTime =
+
+            new Date()
+            .toLocaleTimeString();
+
+
+        status.textContent =
+
+            "comparison_results.json loaded"
+            +
+            " | session "
+            +
+            (
+                data.session_id
+                ??
+                "–"
+            )
+            +
+            " | "
+            +
+            (
+                data?.summary?.total_generated
+                ??
+                "–"
+            )
+            +
+            " DATA packets"
+            +
+            " | "
+            +
+            currentTime;
+
+    }
+
+    catch (
+        error
+    ) {
+
+        const status =
+            $("comparison-status");
+
+
+        status.className =
+            "status error";
+
+
+        status.textContent =
+
+            "ERROR comparison_results.json: "
+            +
+            error.message;
+
+    }
+
+}
+
+
+
+/* ===============================================================
+   MANUAL comparison_results.json
+   =============================================================== */
+
+$("comparison-file").addEventListener(
+
+    "change",
+
+    async (
+        event
+    ) => {
+
+        const file =
+
+            event.target.files?.[
+                0
+            ];
+
+
+        if (
+            !file
+        ) {
+
+            return;
+        }
+
+
+        try {
+
+            const data =
+
+                await readJsonFile(
+                    file
+                );
+
+
+            state.manualComparisonLoaded =
+                true;
+
+
+            renderComparison(
+                data
+            );
+
+
+            const status =
+                $("comparison-status");
+
+
+            status.className =
+                "status";
+
+
+            status.textContent =
+
+                file.name
+                +
+                " loaded manually"
+                +
+                " | session "
+                +
+                (
+                    data.session_id
+                    ??
+                    "–"
+                );
+
+        }
+
+        catch (
+            error
+        ) {
+
+            const status =
+                $("comparison-status");
+
+
+            status.className =
+                "status error";
+
+
+            status.textContent =
+
+                "ERROR "
+                +
+                file.name
+                +
+                ": "
+                +
+                error.message;
+
+        }
+
+    }
+
+);
+
+
+
+/* ===============================================================
+   RELOAD BUTTON
+   =============================================================== */
+
+$("reload-all").addEventListener(
+
+    "click",
+
+    async () => {
+
+        state.manualComparisonLoaded =
+            false;
+
+
+        await Promise.all([
+
+            loadComparisonAutomatically(),
+
+            loadExperimentAggregate()
+
+        ]);
+
+
+        refreshPdrImage();
+
+    }
+
+);
+
+
+
+/* ===============================================================
+   CLEAR BUTTON
+   =============================================================== */
+
+$("clear-comparison").addEventListener(
+
+    "click",
+
+    () => {
+
+        state.manualComparisonLoaded =
+            false;
+
+
+        location.reload();
+
+    }
+
+);
+
+
+
+/* ===============================================================
+   IMAGE REFRESH BUTTON
+   =============================================================== */
+
+$("refresh-image").addEventListener(
+
+    "click",
+
+    refreshPdrImage
+
+);
+
+
+
+/* ===============================================================
+   CLEAR EXPERIMENTS
+   =============================================================== */
+
+$("clear-flow").addEventListener(
+
+    "click",
+
+    () => {
+
+        state.experiments.flow =
+            [];
+
+
+        renderStudy(
+            "flow"
+        );
+
+    }
+
+);
+
+
+
+$("clear-speed").addEventListener(
+
+    "click",
+
+    () => {
+
+        state.experiments.speed =
+            [];
+
+
+        renderStudy(
+            "speed"
+        );
+
+    }
+
+);
+
+
+
+$("clear-nodes").addEventListener(
+
+    "click",
+
+    () => {
+
+        state.experiments.nodes =
+            [];
+
+
+        renderStudy(
+            "nodes"
+        );
+
+    }
+
+);
+
+
+
+/* ===============================================================
+   MANUAL FLOW FILES
+   =============================================================== */
+
+$("flow-files").addEventListener(
+
+    "change",
+
+    async (
+        event
+    ) => {
+
+        try {
+
+            await handleExperimentFiles(
+
+                "flow",
+
+                event.target.files
+
+            );
+
+        }
+
+        catch (
+            error
+        ) {
+
+            alert(
+                error.message
+            );
+
+        }
+
+    }
+
+);
+
+
+
+/* ===============================================================
+   MANUAL SPEED FILES
+   =============================================================== */
+
+$("speed-files").addEventListener(
+
+    "change",
+
+    async (
+        event
+    ) => {
+
+        try {
+
+            await handleExperimentFiles(
+
+                "speed",
+
+                event.target.files
+
+            );
+
+        }
+
+        catch (
+            error
+        ) {
+
+            alert(
+                error.message
+            );
+
+        }
+
+    }
+
+);
+
+
+
+/* ===============================================================
+   MANUAL NODE FILES
+   =============================================================== */
+
+$("node-files").addEventListener(
+
+    "change",
+
+    async (
+        event
+    ) => {
+
+        try {
+
+            await handleExperimentFiles(
+
+                "nodes",
+
+                event.target.files
+
+            );
+
+        }
+
+        catch (
+            error
+        ) {
+
+            alert(
+                error.message
+            );
+
+        }
+
+    }
+
+);
+
+
+
+/* ===============================================================
+   INITIALIZATION
+   =============================================================== */
+
+async function initialize() {
+
+    /* Create empty experiment graphs */
+
+    renderStudy(
+        "flow"
+    );
+
+
+    renderStudy(
+        "speed"
+    );
+
+
+    renderStudy(
+        "nodes"
+    );
+
+
+    /* Load both JSON files */
+
+    await Promise.all([
+
+        loadComparisonAutomatically(),
+
+        loadExperimentAggregate()
+
+    ]);
+
+
+    /* Refresh PNG */
+
+    refreshPdrImage();
+
+
+
+    /* -----------------------------------------------------------
+       Automatically reload comparison_results.json every 3 sec.
+       This allows the dashboard to update after a new simulation.
+       ----------------------------------------------------------- */
+
+    window.setInterval(
+
+        async () => {
+
+            if (
+                !state.manualComparisonLoaded
+            ) {
+
+                await loadComparisonAutomatically();
+
+            }
+
+        },
+
+        3000
+
+    );
+
+}
+
+
+
+/* ===============================================================
+   START DASHBOARD
+   =============================================================== */
+
+initialize();
+
+
+</script>
+
+
+</body>
+
+</html>

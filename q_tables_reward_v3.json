@@ -1,0 +1,66 @@
+{
+  "UAV-1": {
+    "high-strong_link-relaxed-far_gs-light_q": {
+      "forward": 0.3992868295446156,
+      "hold": 0.0
+    },
+    "high-strong_link-empty-far_gs-empty_q": {
+      "forward": 0.0,
+      "hold": 0.0
+    },
+    "mid-strong_link-empty-far_gs-empty_q": {
+      "forward": 0.0,
+      "hold": 0.0
+    },
+    "mid-strong_link-relaxed-far_gs-light_q": {
+      "forward": 0.19749896416989843,
+      "hold": 0.0
+    }
+  },
+  "UAV-2": {
+    "mid-strong_link-empty-mid_gs-empty_q": {
+      "forward": 0.0,
+      "hold": 0.291954
+    }
+  },
+  "UAV-3": {
+    "high-strong_link-empty-mid_gs-empty_q": {
+      "forward": 0.0,
+      "hold": 0.06
+    },
+    "high-strong_link-relaxed-mid_gs-light_q": {
+      "forward": 0.44415436808830944,
+      "hold": 0.0
+    }
+  },
+  "UAV-4": {
+    "high-strong_link-empty-mid_gs-empty_q": {
+      "forward": 0.0,
+      "hold": 0.06
+    },
+    "mid-strong_link-empty-mid_gs-empty_q": {
+      "forward": 0.0,
+      "hold": 0.06
+    }
+  },
+  "UAV-5": {
+    "mid-strong_link-empty-near_gs-empty_q": {
+      "forward": 0.0,
+      "hold": 0.10200000000000001
+    },
+    "mid-strong_link-soon-near_gs-light_q": {
+      "forward": 2.720006906697488,
+      "hold": 0.0
+    },
+    "mid-strong_link-relaxed-near_gs-light_q": {
+      "forward": 0.0,
+      "hold": 0.0
+    }
+  },
+  "UAV-6": {
+    "mid-strong_link-empty-near_gs-empty_q": {
+      "forward": 0.0,
+      "hold": 0.264654
+    }
+  }
+}

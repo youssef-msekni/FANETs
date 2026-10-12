@@ -1,0 +1,210 @@
+{
+  "UAV-1": {
+    "high-isolated-relaxed": {
+      "forward": -0.39778733772,
+      "hold": 0.63091215708
+    },
+    "high-strong_link-relaxed": {
+      "forward": 3.1400375006489996,
+      "hold": 0.0
+    },
+    "high-weak_link-relaxed": {
+      "forward": 0.4064514,
+      "hold": 0.2646
+    },
+    "high-isolated-urgent": {
+      "forward": 0.0,
+      "hold": -1.00978733772
+    },
+    "mid-isolated-relaxed": {
+      "forward": 0.0,
+      "hold": 0.4447623
+    },
+    "mid-isolated-urgent": {
+      "forward": 0.0,
+      "hold": -0.3
+    },
+    "mid-weak_link-urgent": {
+      "forward": -0.36,
+      "hold": 0.0
+    },
+    "mid-weak_link-relaxed": {
+      "forward": 0.0,
+      "hold": 0.0
+    },
+    "mid-strong_link-relaxed": {
+      "forward": 0.911289,
+      "hold": 0.0
+    },
+    "low-strong_link-relaxed": {
+      "forward": 1.9201715521887002,
+      "hold": 0.339709413
+    },
+    "low-isolated-relaxed": {
+      "forward": -0.3,
+      "hold": 0.03
+    }
+  },
+  "UAV-2": {
+    "high-strong_link-relaxed": {
+      "forward": 0.9922040945719728,
+      "hold": 0.46927872219204664
+    },
+    "high-strong_link-urgent": {
+      "forward": -0.369,
+      "hold": -0.7506734409
+    },
+    "high-isolated-relaxed": {
+      "forward": 0.0,
+      "hold": 0.0591
+    },
+    "mid-strong_link-relaxed": {
+      "forward": 1.8849851965268247,
+      "hold": 0.0
+    },
+    "mid-strong_link-urgent": {
+      "forward": -0.13675110005560726,
+      "hold": 0.0
+    },
+    "low-strong_link-relaxed": {
+      "forward": 0.3,
+      "hold": 0.0
+    },
+    "low-strong_link-urgent": {
+      "forward": 0.0,
+      "hold": 0.0
+    }
+  },
+  "UAV-3": {
+    "high-isolated-relaxed": {
+      "forward": 0.0,
+      "hold": 0.2928
+    },
+    "high-strong_link-relaxed": {
+      "forward": 2.7989400742542667,
+      "hold": 0.12
+    },
+    "mid-strong_link-relaxed": {
+      "forward": 0.21315495985925403,
+      "hold": 0.20967498
+    },
+    "mid-isolated-relaxed": {
+      "forward": 0.0,
+      "hold": 0.0
+    },
+    "low-strong_link-relaxed": {
+      "forward": 0.0162,
+      "hold": 0.053117568600000005
+    }
+  },
+  "UAV-4": {
+    "high-strong_link-relaxed": {
+      "forward": 0.5203106880426283,
+      "hold": 0.52547186875286
+    },
+    "high-strong_link-urgent": {
+      "forward": 0.11282339041744538,
+      "hold": -0.13239233340757847
+    },
+    "mid-isolated-relaxed": {
+      "forward": 0.0,
+      "hold": 0.03
+    },
+    "mid-strong_link-relaxed": {
+      "forward": 0.0,
+      "hold": 0.07137
+    },
+    "mid-strong_link-urgent": {
+      "forward": -0.1119,
+      "hold": 0.0
+    },
+    "low-strong_link-relaxed": {
+      "forward": 0.4551995882394,
+      "hold": 0.32517315300188454
+    },
+    "low-weak_link-relaxed": {
+      "forward": 0.0,
+      "hold": 0.06
+    },
+    "low-strong_link-urgent": {
+      "forward": -0.12246,
+      "hold": -0.27
+    }
+  },
+  "UAV-5": {
+    "high-strong_link-relaxed": {
+      "forward": 1.7616535574581431,
+      "hold": 0.15
+    },
+    "high-weak_link-relaxed": {
+      "forward": 0.0,
+      "hold": 0.09
+    },
+    "high-strong_link-urgent": {
+      "forward": -0.22032055916692667,
+      "hold": -1.2299999999999998
+    },
+    "high-isolated-relaxed": {
+      "forward": 0.0,
+      "hold": 0.18
+    },
+    "mid-strong_link-urgent": {
+      "forward": 0.69560079405,
+      "hold": -1.08
+    },
+    "mid-strong_link-relaxed": {
+      "forward": 1.3361103706185,
+      "hold": 0.0
+    },
+    "mid-weak_link-relaxed": {
+      "forward": 0.6,
+      "hold": 0.0
+    },
+    "low-strong_link-urgent": {
+      "forward": 0.0,
+      "hold": 0.0
+    }
+  },
+  "UAV-6": {
+    "high-strong_link-relaxed": {
+      "forward": 0.6515922356227906,
+      "hold": 0.4219938073751317
+    },
+    "high-isolated-relaxed": {
+      "forward": 0.0,
+      "hold": 0.03
+    },
+    "high-weak_link-relaxed": {
+      "forward": 0.0,
+      "hold": 0.03
+    },
+    "high-weak_link-urgent": {
+      "forward": 0.0,
+      "hold": 0.0
+    },
+    "high-strong_link-urgent": {
+      "forward": 0.5807611628776139,
+      "hold": 0.0
+    },
+    "mid-strong_link-relaxed": {
+      "forward": 0.12677442356439003,
+      "hold": 0.16328388111000003
+    },
+    "mid-weak_link-relaxed": {
+      "forward": 0.0,
+      "hold": 0.03
+    },
+    "low-weak_link-relaxed": {
+      "forward": 0.0,
+      "hold": 0.24397236402
+    },
+    "low-strong_link-relaxed": {
+      "forward": 0.315957,
+      "hold": 0.0591
+    },
+    "low-weak_link-urgent": {
+      "forward": 0.65955931782,
+      "hold": 0.0
+    }
+  }
+}

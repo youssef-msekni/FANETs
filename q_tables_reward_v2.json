@@ -1,0 +1,214 @@
+{
+  "UAV-1": {
+    "high-strong_link-relaxed-far_gs-light_q": {
+      "forward": 0.0,
+      "hold": -0.029999999999999992
+    },
+    "high-strong_link-relaxed-far_gs-heavy_q": {
+      "forward": 0.0,
+      "hold": -0.01349999999999997
+    },
+    "high-strong_link-soon-far_gs-heavy_q": {
+      "forward": 0.0,
+      "hold": -0.11000000000000001
+    },
+    "high-strong_link-urgent-far_gs-heavy_q": {
+      "forward": -0.28533839380268133,
+      "hold": -1.1888636363636362
+    },
+    "mid-strong_link-empty-far_gs-empty_q": {
+      "forward": 0.0,
+      "hold": 0.0
+    },
+    "mid-strong_link-relaxed-far_gs-light_q": {
+      "forward": 0.0,
+      "hold": 0.1764
+    },
+    "mid-strong_link-soon-far_gs-heavy_q": {
+      "forward": 0.0,
+      "hold": -0.24768425814967837
+    },
+    "mid-strong_link-urgent-far_gs-heavy_q": {
+      "forward": -0.19350816327105444,
+      "hold": -0.7843766180674122
+    },
+    "high-isolated-relaxed-far_gs-light_q": {
+      "forward": 0.0,
+      "hold": 0.019999999999999993
+    },
+    "mid-strong_link-relaxed-far_gs-heavy_q": {
+      "forward": 0.0,
+      "hold": -0.11099999999999999
+    },
+    "mid-strong_link-soon-far_gs-light_q": {
+      "forward": 0.0,
+      "hold": -0.08000000000000002
+    },
+    "mid-isolated-soon-far_gs-heavy_q": {
+      "forward": 0.0,
+      "hold": -0.25550000000000006
+    },
+    "mid-isolated-urgent-far_gs-heavy_q": {
+      "forward": 0.0,
+      "hold": -0.16000000000000003
+    },
+    "mid-isolated-relaxed-far_gs-heavy_q": {
+      "forward": 0.0,
+      "hold": -0.11499999999999996
+    },
+    "low-isolated-soon-far_gs-heavy_q": {
+      "forward": 0.0,
+      "hold": 0.0
+    }
+  },
+  "UAV-2": {
+    "high-isolated-empty-mid_gs-empty_q": {
+      "forward": 0.0,
+      "hold": 0.12
+    },
+    "high-strong_link-empty-mid_gs-empty_q": {
+      "forward": 0.0,
+      "hold": 0.6093048768229393
+    },
+    "mid-strong_link-empty-mid_gs-empty_q": {
+      "forward": 0.0,
+      "hold": 0.48710629642760994
+    },
+    "mid-strong_link-empty-far_gs-empty_q": {
+      "forward": 0.010069765200000013,
+      "hold": 0.49692460028400004
+    },
+    "mid-isolated-empty-far_gs-empty_q": {
+      "forward": 0.0,
+      "hold": 0.1182
+    },
+    "mid-weak_link-empty-mid_gs-empty_q": {
+      "forward": 0.0,
+      "hold": 0.06
+    }
+  },
+  "UAV-3": {
+    "high-strong_link-empty-mid_gs-empty_q": {
+      "forward": 0.3886865707429996,
+      "hold": 0.587508917669855
+    },
+    "high-strong_link-urgent-mid_gs-heavy_q": {
+      "forward": -0.05833123195832711,
+      "hold": -0.8156032758586829
+    },
+    "mid-strong_link-empty-mid_gs-empty_q": {
+      "forward": 0.0,
+      "hold": 0.49805979992490906
+    },
+    "mid-strong_link-soon-mid_gs-light_q": {
+      "forward": 0.0,
+      "hold": -0.263
+    },
+    "mid-strong_link-urgent-mid_gs-heavy_q": {
+      "forward": 0.0,
+      "hold": 0.0
+    }
+  },
+  "UAV-4": {
+    "high-strong_link-empty-mid_gs-empty_q": {
+      "forward": 0.0,
+      "hold": 0.49510407635203163
+    },
+    "mid-strong_link-empty-mid_gs-empty_q": {
+      "forward": 0.0998462763520316,
+      "hold": 0.6785891525859609
+    },
+    "mid-strong_link-urgent-mid_gs-heavy_q": {
+      "forward": 0.22401902201715873,
+      "hold": -0.42928571428571427
+    }
+  },
+  "UAV-5": {
+    "high-strong_link-empty-near_gs-empty_q": {
+      "forward": 0.0,
+      "hold": 0.439976265
+    },
+    "high-isolated-empty-near_gs-empty_q": {
+      "forward": 0.0,
+      "hold": 0.1464
+    },
+    "mid-strong_link-empty-near_gs-empty_q": {
+      "forward": 0.0,
+      "hold": 0.26448
+    },
+    "mid-strong_link-soon-near_gs-heavy_q": {
+      "forward": 0.0,
+      "hold": 0.0
+    },
+    "mid-strong_link-soon-mid_gs-heavy_q": {
+      "forward": 0.0,
+      "hold": -0.105
+    },
+    "mid-strong_link-urgent-mid_gs-heavy_q": {
+      "forward": -1.174564494285166,
+      "hold": -0.18999999999999997
+    },
+    "mid-strong_link-empty-mid_gs-empty_q": {
+      "forward": 0.0,
+      "hold": 0.6121613726356958
+    },
+    "mid-isolated-empty-near_gs-empty_q": {
+      "forward": 0.0,
+      "hold": 0.06
+    },
+    "mid-isolated-empty-mid_gs-empty_q": {
+      "forward": -0.15,
+      "hold": 0.0
+    },
+    "low-strong_link-empty-mid_gs-empty_q": {
+      "forward": 0.0,
+      "hold": 0.233754
+    },
+    "low-weak_link-empty-mid_gs-empty_q": {
+      "forward": 0.0,
+      "hold": 0.06
+    }
+  },
+  "UAV-6": {
+    "mid-strong_link-empty-near_gs-empty_q": {
+      "forward": 0.12032308549368,
+      "hold": 0.34755427796373595
+    },
+    "mid-isolated-empty-near_gs-empty_q": {
+      "forward": 0.0,
+      "hold": 0.2364
+    },
+    "mid-weak_link-empty-near_gs-empty_q": {
+      "forward": 0.0,
+      "hold": 0.03
+    },
+    "low-weak_link-empty-near_gs-empty_q": {
+      "forward": 0.0,
+      "hold": 0.06
+    },
+    "low-isolated-empty-near_gs-empty_q": {
+      "forward": 0.0,
+      "hold": 0.06
+    },
+    "low-strong_link-empty-near_gs-empty_q": {
+      "forward": -0.15,
+      "hold": 0.17465399999999998
+    },
+    "high-isolated-empty-near_gs-empty_q": {
+      "forward": 0.0,
+      "hold": 0.2082
+    },
+    "high-strong_link-empty-near_gs-empty_q": {
+      "forward": 0.0,
+      "hold": 0.3027833952
+    },
+    "mid-strong_link-urgent-near_gs-heavy_q": {
+      "forward": 0.025290232255165163,
+      "hold": -0.7149999999999999
+    },
+    "mid-strong_link-soon-near_gs-heavy_q": {
+      "forward": 0.0,
+      "hold": -0.263
+    }
+  }
+}

@@ -1,0 +1,20 @@
+# FANETs direct runtime dependencies (Python 3.11)
+# Keep NumPy on 1.x because torch==2.4.0 wheels used by this project were built
+# against the NumPy 1.x ABI.
+numpy==1.26.4
+python-dotenv>=1.0,<2
+matplotlib>=3.8,<4
+
+# LLM integrations. Do not install the old 0.2.x langchain-text-splitters stack:
+# it conflicts with the LangChain 1.x core required by current provider packages.
+langchain-core>=1.0,<2
+langchain-groq>=1.0,<2
+langchain-ollama>=1.0,<2
+langsmith>=0.3,<1
+ollama>=0.5,<1
+
+# Semantic long-term memory
+torch==2.4.0
+sentence-transformers==3.0.1
+transformers==4.44.2
+faiss-cpu==1.13.0
