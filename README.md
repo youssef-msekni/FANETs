@@ -1,201 +1,155 @@
-# FANET Multi-UAV Relay Simulation
+# FANET Multi-UAV Relay Simulation — LLM+RL vs Q-FANET
 
-This project simulates a Flying Ad Hoc Network (FANET) with 6 mobile UAV relays, one fixed Source, and one fixed Ground Station. It compares two routing systems on the same traffic, mobility and radio-connectivity snapshot:
+Simulation of a Flying Ad Hoc Network (FANET): one fixed Source, one fixed Ground Station (GS) and N mobile UAV relays (default 6, tested up to 50). Two routing systems are compared on **identical** traffic, mobility and radio-link snapshots:
 
-- **LLM+RL**: LLM-guided reward shaping + tabular Q-learning + utility-based next-hop selection.
-- **Q-FANET**: pure Q-learning baseline without LLM reasoning.
+| System | Description |
+|---|---|
+| **LLM+RL (proposed)** | Neighbor-aware Q-learning. An LLM (with STM + LTM memory) scores every reachable next hop; the final action is chosen by Q-learning combined with the LLM scores and a topology/QoS prior. |
+| **Q-FANET (baseline)** | QMR-inspired tabular Q-learning, no LLM, no STM/LTM. |
 
-## Current network model
+![Architecture](Architecure.png)
 
-The corrected default scenario uses:
-
-- horizontal environment: **500 m × 500 m**
-- hard radio communication range: **180 m maximum (3-D Euclidean distance)**
-- simulation tick: **250 ms**
-- 6 Gauss-Markov mobile UAV relays
-- Source at `(250, 475, 150)`
-- Ground Station at `(250, 25, 0)`
-- packet deadline choices: **1000, 1500, 2000, 2500, 3000 ms**
-- unlimited queues; packets can be lost by deadline expiry
-
-A UAV-UAV or UAV-GS link can exist only if the pair is physically within 180 m. For pairs inside that range, the existing Poisson/exponential link-churn model is then applied to represent transient radio availability/fading.
-
-The UAVs start in a lightly jittered relay corridor between Source and GS. This avoids experiments being dominated by a permanently disconnected random initial topology; Gauss-Markov mobility then changes the topology during the simulation.
-
-## Corrected transition / LLM reasoning sequence
-
-The LLM+RL cycle is now explicitly:
+## Architecture
 
 ```text
-Observation S_t
-    -> LLM reasoning / shaping
-    -> RL action A_t
-    -> Environment executes action
-    -> Environment computes reward R_t
-    -> all one-hop transfers are committed synchronously
-    -> updated state S_(t+1)
-    -> Q-learning update
-    -> next LLM reasoning receives BOTH R_t and the updated-state feedback
+Sensors (GPS, RSSI, Energy) ──observation──► LLM Core (CoT + ReAct) ◄── STM (session context)
+                                                  │          ▲
+                                                  │          └── LTM (LangSmith + FAISS, past experiences)
+                                        neighbor scores / guidance
+                                                  ▼
+                                   RL Agent (neighbor-aware Q-learning)
+                                                  │ action: HOLD | UAV-x | GS
+                                                  ▼
+                                         FANET Environment
+                                                  │ reward R_t, next state S_(t+1)
+                                                  ▼
+                       Q-update + STM update + LTM save (+ feedback in next LLM prompt)
 ```
 
-The previous reward is included explicitly in the next LLM prompt under `PREVIOUS TRANSITION FEEDBACK`, together with the previous action and the resulting updated-state label.
+### What the LLM actually does (current code)
+The LLM **does not route directly and does not modify the environment reward**. For each UAV with a non-empty queue it returns:
+- a score in `[0, 1]` for every currently reachable candidate next hop, and for `HOLD`;
+- contextual weights (progress, stability, energy, deadline, congestion);
+- a short rationale (the full chain-of-thought stays private and is never exported).
 
-## Deadline model
+Final decision score per candidate:
 
-Packets are represented as independent `PacketBatch` objects rather than one aggregate queue deadline. Each batch stores:
+```text
+Score(a) = 0.35 * Q(s,a) + 0.25 * LLM_score(a) + 0.40 * Topology/QoS_prior(a)
+```
 
-- batch ID
-- number of packets
-- creation time
-- initial deadline
-- absolute deadline time
-- hop count
+Hard safety masks apply before the choice: direct GS is always taken when reachable; if a progress-making neighbor exists, only progress neighbors are allowed; HOLD is allowed only when no useful link exists. The environment reward (QMR-inspired + progress/hop cost) is the only learning signal.
 
-This prevents a short deadline from incorrectly replacing the deadlines of all other packets in the same UAV queue.
+> Note: older versions used bounded FORWARD/HOLD reward shaping. That path (`LLMCore.shape`, `QLearningAgent`) is still in the file but is no longer used.
 
-Both LLM+RL and Q-FANET now use the same expiry rule: a packet that reaches its end-to-end deadline before successful delivery is dropped permanently and counted in `dropped_deadline`.
+## Network model
 
-## Synchronous forwarding
+- Area **500 m × 500 m**, hard radio range **180 m** (3-D Euclidean distance).
+- Tick = **250 ms**. A packet moves **at most one hop per tick** (synchronous commit).
+- Source at `(250, 475, 150)`, GS at `(250, 25, 0)`.
+- Gauss-Markov mobility, configurable mean speed (`--speed-mps`, default 12 m/s). UAVs start in a jittered Source→GS corridor.
+- Links: in-range pairs follow a Poisson/exponential birth-death process (λ=1.4/s, μ=0.6/s) on **symmetric** edges (`SharedLinkGraph`).
+- HELLO beacons every 100 ms (expire after 300 ms) maintain neighbor freshness.
+- Source generates DATA at `--packet-rate-pps` (default 10 pps), deadlines drawn from {1000, 1500, 2000, 2500, 3000} ms.
+- Each UAV has unlimited queues but a **finite forwarding capacity** (`--relay-capacity-pps`, default 40 pps) with EDF scheduling, so congestion shows up as deadline drops.
+- Battery: random 50–100 % start, −3 % per tick, UAV cannot transmit below 1 %.
+- Experiment = traffic phase + drain phase (so late packets can still be delivered).
 
-A packet can move by **at most one hop per simulation tick**. Forwarded packets are first placed in an incoming buffer and are committed only after every UAV has made its decision for that tick. This removes the earlier iteration-order effect where a packet could cross several UAVs inside one 250 ms tick.
+### Fair comparison
+Shared: traffic, deadlines, mobility, positions, link snapshot, initial batteries, exploration schedule.
+Independent: queues, batteries, drops, Q-tables, decisions.
 
-## Fair comparison
-
-The two compared systems share:
-
-- Source traffic
-- Source packet deadlines
-- UAV mobility
-- physical positions
-- the same active-link snapshot each tick
-
-But they keep independent:
-
-- packet queues
-- battery states
-- deadline losses
-- Q-tables
-- routing decisions
-
-Q-FANET no longer reads the battery modified by LLM+RL actions.
-
-## LTM
-
-The long-term memory uses:
-
-- LangSmith as persistent experience storage when configured
-- SentenceTransformers embeddings
-- FAISS local semantic vector retrieval
-
-If FAISS/the embedding model or LangSmith is unavailable, the simulator falls back to local lexical retrieval instead of crashing.
+## Memory
+- **STM**: per-UAV, per-session rolling window of the last 5 transitions.
+- **LTM**: shared across the swarm. LangSmith dataset (`FANETs`) for persistence, SentenceTransformers + FAISS for semantic retrieval, re-ranked by outcome quality (successful deliveries preferred over deadline failures). Falls back to local lexical retrieval if LangSmith/FAISS is unavailable.
 
 ## Project structure
 
 ```text
-myagent/
-├── main.py
-├── neighbor_discovery.py
-├── plot_comparison.py
-├── multi_run_study.py
-├── learning_curve_study.py
-├── Dashboard.html
-├── run_project.bat
-├── requirements.txt
-├── .env.example
-├── .gitignore
-├── q_tables.json
-└── qfanet_q_tables.json
+.
+├── main.py                    # simulation: LLM+RL, Q-FANET, environment, export
+├── neighbor_discovery.py      # SharedLinkGraph, link/energy/distance helpers
+├── plot_comparison.py         # sensitivity studies (flow / speed / nodes) -> experiment_results.json
+├── multi_run_study.py         # independent runs: variance, boxplot, PDR over time
+├── learning_curve_study.py    # sequential runs with persistent Q-tables
+├── Dashboard.html             # interactive dashboard
+├── run_project.bat            # Windows pipeline launcher
+├── Architecure.png            # architecture diagram
+├── CORRECTIONS.md             # change log of model corrections
+└── requirements.txt
 ```
-
-`comparison_results.json`, multi-run result files, and `charts/` are generated outputs.
+Generated: `comparison_results.json`, `exp_*.json`, `experiment_results.json`, `charts/`, `q_tables_*.json`.
 
 ## Setup
 
-Create and activate a virtual environment, then install dependencies:
-
-```powershell
+```bash
 python -m venv venv
-venv\Scripts\activate
+venv\Scripts\activate          # Linux/macOS: source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Copy `.env.example` to `.env` and add your own local credentials. Do not commit `.env`.
-
-Typical variables are:
+Create a local `.env` (never commit it):
 
 ```env
 GROQ_API_KEY=
 LANGSMITH_API_KEY=
-LANGSMITH_TRACING=true
 LANGSMITH_ENDPOINT=
-LANGSMITH_PROJECT=
+LANGSMITH_WORKSPACE_ID=
 LTM_DATASET_NAME=FANETs
+OLLAMA_MODEL=phi3
+OLLAMA_BASE_URL=http://localhost:11434
 ```
 
-For the local Ollama backend:
+Local LLM backend (default):
 
 ```bash
 ollama serve
 ollama pull phi3
 ```
 
-## Run the simulation
+## Run
+
+`--uavs` is **required**.
 
 ```bash
-python main.py
+python main.py --uavs 25 --steps 20 --packet-rate-pps 10 \
+    --packet-size-bytes 128 --hello-interval-ms 100 --hello-size-bytes 32
 ```
 
-The single-run output is written to `comparison_results.json`.
+Useful options:
 
-Important time-series fields include:
+| Option | Meaning | Default |
+|---|---|---|
+| `-n/--uavs` | number of UAV relays (required) | – |
+| `-s/--steps` | total ticks (1 tick = 0.25 s) | 20 |
+| `--backend` | `ollama`, `groq`, `mixed` | ollama |
+| `--packet-rate-pps` | Source DATA rate | 10 |
+| `--relay-capacity-pps` | per-UAV forwarding capacity | 40 |
+| `--speed-mps` | mean UAV speed | 12 |
+| `--output-json` | output file (never use shell `>` redirection) | comparison_results.json |
+| `--fresh-learning` | ignore persisted Q-tables | off |
 
-```text
-time_ms
-time_s
-llm_pdr_over_time
-qfanet_pdr_over_time
-deadline_trace
-packet_deadlines
-llm_delivery_records
-qfanet_delivery_records
-deadline_drop_events
-```
+Output: `comparison_results.json` and `charts/pdr_vs_time.png`.
 
-`packet_deadlines` contains each generated batch's creation time and assigned deadline. Delivery records include end-to-end latency and remaining deadline margin at delivery.
-
-## Generate thesis figures
-
-After running `main.py`:
+### Sensitivity studies
 
 ```bash
-python plot_comparison.py
+python plot_comparison.py --study all --runs 5 --fresh-learning
+python -m http.server 8000     # then open http://localhost:8000/Dashboard.html
 ```
 
-The script produces, among other figures:
-
-- `charts/pdr_vs_time.png` — **PDR versus simulated time in seconds**
-- `charts/deadline_vs_time.png` — minimum remaining packet deadline versus time
-- `charts/deadline_drops_vs_time.png` — cumulative deadline losses versus time
-- `charts/cumulative_delivery.png`
-- `charts/pdr_comparison.png`
-- `charts/outcomes_breakdown.png`
-
-## Multi-run studies
-
-Independent variance study:
+### Variance / learning studies
 
 ```bash
-python multi_run_study.py 6 30 ollama
-```
-
-Sequential learning study with Q-table persistence:
-
-```bash
+python multi_run_study.py 10 30 ollama
 python learning_curve_study.py 10 30
 ```
 
-For large studies, a local Ollama backend avoids cloud token quotas.
+## Exported data (per run)
+`time_s`, `llm_pdr_over_time`, `qfanet_pdr_over_time`, `deadline_trace`, `packet_deadlines`, `packet_tracking` (full per-packet trajectory), `llm_delivery_records`, `qfanet_delivery_records`, `deadline_drop_events`, `battery_trace`, `reward_trace`, `summary`.
+
+## Known limitations
+See the "Limitations" discussion in the thesis; main points: small sample sizes in current sweeps, single entry UAV at the Source (bottleneck at high load), idealized MAC/PHY, and the absence of an LLM-ablation baseline.
 
 ## Security
-
-`.env` is ignored by Git. The distributed project contains a blank `.env` / `.env.example`; add keys only on your own machine. If credentials were previously committed or shared, rotate them.
+`.env` is git-ignored. Rotate any key that was ever committed or shared.
