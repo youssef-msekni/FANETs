@@ -26,21 +26,44 @@ Sensors (GPS, RSSI, Energy) ──observation──► LLM Core (CoT + ReAct) �
                        Q-update + STM update + LTM save (+ feedback in next LLM prompt)
 ```
 
-### What the LLM actually does (current code)
-The LLM **does not route directly and does not modify the environment reward**. For each UAV with a non-empty queue it returns:
-- a score in `[0, 1]` for every currently reachable candidate next hop, and for `HOLD`;
-- contextual weights (progress, stability, energy, deadline, congestion);
-- a short rationale (the full chain-of-thought stays private and is never exported).
+### What the LLM does (ReAct + CoT, current code)
+The LLM **never picks the action**. For each UAV with a non-empty queue it runs a **ReAct loop** (`react_llm_core.py`), at most `REACT_MAX_STEPS` (default 4) replies:
 
-Final decision score per candidate:
+```text
+Thought (numbered CoT: 1 Situation, 2 Unknown, 3 Plan, then 4 Update, 5 Next)
+  -> Action: read-only tool   -> Observation
+  -> ... repeat ...           -> finish (guidance only)
+```
+
+Tools (read-only): `get_battery`, `get_distance`, `get_link_quality`, `get_queue_load`, `get_deadline_status`, `read_stm`, `search_ltm`. `finish` is refused until at least one observation succeeded. Invalid JSON, LLM errors or an exhausted budget fall back to neutral guidance (scores 0.5, shaping 0).
+
+`finish` returns: a soft score per candidate and for HOLD, routing weights, a short rationale, and a **bounded shaping bonus** per action. The thoughts, tool calls and observations are exported as `react_trace` in `reward_trace`.
+
+The **RL agent takes the final action**:
 
 ```text
 Score(a) = 0.35 * Q(s,a) + 0.25 * LLM_score(a) + 0.40 * Topology/QoS_prior(a)
 ```
 
-Hard safety masks apply before the choice: direct GS is always taken when reachable; if a progress-making neighbor exists, only progress neighbors are allowed; HOLD is allowed only when no useful link exists. The environment reward (QMR-inspired + progress/hop cost) is the only learning signal.
+Hard masks apply first: direct GS is always taken when reachable; if a progress-making neighbor exists only progress neighbors are allowed; HOLD only when no useful link exists.
 
-> Note: older versions used bounded FORWARD/HOLD reward shaping. That path (`LLMCore.shape`, `QLearningAgent`) is still in the file but is no longer used.
+### Reward shaping (restored, bounded)
+After the environment returns `R_env` for the action chosen by RL:
+
+```text
+R_learn = R_env + clip(bonus_LLM(a_chosen), -B, +B)       B = LLMRL_SHAPING_BOUND (default 0.25)
+```
+
+`R_learn` feeds the Q-update, STM and LTM. `reward_trace` logs `base_reward`, `llm_bonus` and `final_reward` per step. The bound keeps the environment reward dominant.
+
+| Env variable | Effect | Default |
+|---|---|---|
+| `LLMRL_REACT` | `0` = single-call scorer instead of ReAct | 1 |
+| `LLMRL_SHAPING` | `0` = no reward bonus (ablation: ReAct guidance only) | 1 |
+| `LLMRL_SHAPING_BOUND` | bonus clamp `B` | 0.25 |
+| `REACT_MAX_STEPS` | max replies per decision | 4 |
+
+Cost: a ReAct decision needs 2 to 4 LLM calls instead of 1, so runs are slower. Q-FANET is unchanged.
 
 ## Network model
 
@@ -68,6 +91,7 @@ Independent: queues, batteries, drops, Q-tables, decisions.
 ```text
 .
 ├── main.py                    # simulation: LLM+RL, Q-FANET, environment, export
+├── react_llm_core.py          # ReAct + CoT loop, tools, bounded shaping guidance
 ├── neighbor_discovery.py      # SharedLinkGraph, link/energy/distance helpers
 ├── plot_comparison.py         # sensitivity studies (flow / speed / nodes) -> experiment_results.json
 ├── multi_run_study.py         # independent runs: variance, boxplot, PDR over time
@@ -149,7 +173,7 @@ python learning_curve_study.py 10 30
 `time_s`, `llm_pdr_over_time`, `qfanet_pdr_over_time`, `deadline_trace`, `packet_deadlines`, `packet_tracking` (full per-packet trajectory), `llm_delivery_records`, `qfanet_delivery_records`, `deadline_drop_events`, `battery_trace`, `reward_trace`, `summary`.
 
 ## Known limitations
-See the "Limitations" discussion in the thesis; main points: small sample sizes in current sweeps, single entry UAV at the Source (bottleneck at high load), idealized MAC/PHY, and the absence of an LLM-ablation baseline.
+See the "Limitations" discussion in the thesis; main points: ReAct latency (2-4 LLM calls per decision), small sample sizes in current sweeps, single entry UAV at the Source (bottleneck at high load), idealized MAC/PHY, and the absence of an LLM-ablation baseline.
 
 ## Security
 `.env` is git-ignored. Rotate any key that was ever committed or shared.
