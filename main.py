@@ -358,6 +358,14 @@ _OLLAMA_AVAILABLE = True
 # dans le meme dossier. gabriel_planarize() y reste disponible (documente pour P5)
 # mais n'est plus appelee activement depuis que GPSR a ete remplace par QFANETRouter
 # (Q-learning pur, pas de notion de graphe planarise/routage de perimetre).
+try:
+    from react_llm_core import ReActGuidanceCore
+    _REACT_AVAILABLE = True
+except Exception as _react_exc:  # pragma: no cover
+    ReActGuidanceCore = None
+    _REACT_AVAILABLE = False
+    print(f"[ReAct] react_llm_core unavailable ({_react_exc}); using single-call guidance.")
+
 from neighbor_discovery import (
     SharedLinkGraph,
     gabriel_planarize,
@@ -523,6 +531,25 @@ HOLD_ACTION = "HOLD"
 LLMRL_Q_ACTION_WEIGHT = 0.35
 LLMRL_LLM_NEIGHBOR_WEIGHT = 0.25
 LLMRL_HEURISTIC_WEIGHT = 0.40
+# Weight of the 2-hop lookahead term inside the topology/QoS prior (0 disables).
+LLMRL_LOOKAHEAD_WEIGHT = float(os.getenv("LLMRL_LOOKAHEAD_WEIGHT", "0.30"))
+
+# ----------------------------------------------------------------
+# ReAct + CoT guidance and bounded LLM reward shaping
+# ----------------------------------------------------------------
+# The LLM runs a ReAct loop (Thought -> read-only tool -> Observation, with
+# numbered step-by-step CoT in every thought). It never picks the action: its
+# `finish` call returns guidance only. Part of that guidance is a per-action
+# shaping bonus, hard-clamped to [-LLMRL_SHAPING_BOUND, +LLMRL_SHAPING_BOUND],
+# that is ADDED to the environment reward before the Q-update:
+#       R_learn = R_env + clip(bonus(a_chosen_by_RL))
+# Set LLMRL_REACT=0 to fall back to the single-call scorer, and
+# LLMRL_SHAPING=0 to keep ReAct guidance but disable the reward bonus (ablation).
+# ----------------------------------------------------------------
+LLMRL_REACT_ENABLED = os.getenv("LLMRL_REACT", "1").strip() not in ("0", "false", "False")
+LLMRL_SHAPING_ENABLED = os.getenv("LLMRL_SHAPING", "1").strip() not in ("0", "false", "False")
+LLMRL_LLM_ENABLED = os.getenv("LLMRL_LLM", "1").strip() not in ("0", "false", "False")  # 0 = RL + prior only (ablation)
+LLMRL_SHAPING_BOUND = float(os.getenv("LLMRL_SHAPING_BOUND", "0.25"))
 
 # Intermediate reward shaping for useful geographic progress. Regressive hops
 # are penalized more strongly because they consume one complete 250 ms tick.
@@ -541,6 +568,49 @@ LTM_QUALITY_WEIGHT = 0.30
 # TOTAL number of simulation ticks; the final ticks are a drain/flush phase.
 MAX_DEADLINE_MS = max(DEADLINE_CHOICES_MS)
 DRAIN_TICKS = int(math.ceil(MAX_DEADLINE_MS / TICK_DURATION_MS))
+
+# ----------------------------------------------------------------
+# Configurable time model
+# ----------------------------------------------------------------
+# legacy  : tick = 250 ms, deadlines 1000-3000 ms (original behaviour).
+# article : tick = 10 ms (one hop = 10 ms), deadlines 100-300 ms. Packet
+#           intervals of 10-50 ms are then resolved correctly, and delays
+#           are in the tens of milliseconds like Q-FANET-style evaluations.
+# Mobility and link churn keep their 250 ms physics step in every profile.
+LEGACY_TICK_MS = 250.0
+LEGACY_DEADLINES_MS = (1000.0, 1500.0, 2000.0, 2500.0, 3000.0)
+TIME_PROFILES = {
+    "legacy": (LEGACY_TICK_MS, LEGACY_DEADLINES_MS),
+    "article": (10.0, (100.0, 150.0, 200.0, 250.0, 300.0)),
+}
+PHYSICS_STEP_MS = 250.0
+
+
+def configure_time_model(tick_ms=None, deadlines_ms=None, profile=None):
+    """(Re)compute every constant that depends on the tick / deadline scale."""
+    global TICK_DURATION_MS, SIM_TICK_SECONDS, DEADLINE_CHOICES_MS, MAX_DEADLINE_MS
+    global DRAIN_TICKS, QFANET_URGENT_DEADLINE_MS, QFANET_CRITICAL_DEADLINE_MS
+    global LLMRL_URGENT_DEADLINE_MS, LLMRL_SOON_DEADLINE_MS
+    p_tick, p_dl = TIME_PROFILES.get(profile or "legacy", TIME_PROFILES["legacy"])
+    TICK_DURATION_MS = float(tick_ms) if tick_ms else p_tick
+    DEADLINE_CHOICES_MS = tuple(float(x) for x in (deadlines_ms or p_dl))
+    SIM_TICK_SECONDS = TICK_DURATION_MS / 1000.0
+    MAX_DEADLINE_MS = max(DEADLINE_CHOICES_MS)
+    DRAIN_TICKS = int(math.ceil(MAX_DEADLINE_MS / TICK_DURATION_MS))
+    QFANET_URGENT_DEADLINE_MS = 2.0 * TICK_DURATION_MS
+    QFANET_CRITICAL_DEADLINE_MS = 1.0 * TICK_DURATION_MS
+    LLMRL_URGENT_DEADLINE_MS = 2.0 * TICK_DURATION_MS
+    LLMRL_SOON_DEADLINE_MS = 4.0 * TICK_DURATION_MS
+
+# Routing-void recovery: HOLD is only allowed when the most urgent packet still has
+# more than this much time left (topology can change on the 250 ms physics step).
+# Otherwise the UAV takes the least-regressive reachable link instead of waiting.
+LLMRL_RECOVERY_HOLD_MIN_MS = float(os.getenv("LLMRL_RECOVERY_HOLD_MIN_MS", "250"))
+
+# LLM guidance time-to-live. 0 = ask the LLM at every decision (original).
+# > 0 = reuse the last guidance for that many ms: the LLM acts as a slow
+# supervisory layer, the RL agent decides at every tick.
+LLMRL_GUIDANCE_TTL_MS = float(os.getenv("LLMRL_GUIDANCE_TTL_MS", "0"))
 
 
 # Génère la batterie initiale d'un UAV.
@@ -1156,6 +1226,15 @@ class Network:
     def distance_to_gs(self, uav_id):
         return self.distance(self.positions[uav_id], self.gs_position)
 
+    def nearest_uavs_to(self, position, k=1):
+        """Up to k in-range UAVs, nearest first (multi-entry Source option)."""
+        in_range = sorted(
+            ((uid, self.distance(position, pos)) for uid, pos in self.positions.items()
+             if self.distance(position, pos) <= self.comm_range),
+            key=lambda x: x[1],
+        )
+        return [self.uav_lookup[uid] for uid, _ in in_range[:max(1, int(k))]]
+
     def nearest_uav_to(self, position):
         """Used only by the fixed Source to find its single entry point into the
         swarm -- kept geometric since it's one fixed link, not UAV<->UAV churn."""
@@ -1328,7 +1407,14 @@ class Source:
     def __init__(self, position=SOURCE_POSITION,
                  packet_rate_pps=DEFAULT_PACKET_RATE_PPS,
                  packet_size_bytes=DEFAULT_DATA_PACKET_SIZE_BYTES,
-                 deadline_choices=DEADLINE_CHOICES_MS):
+                 deadline_choices=DEADLINE_CHOICES_MS,
+                 max_packets=None,
+                 entry_uavs=1):
+        # entry_uavs: number of nearest in-range UAVs the Source injects into
+        # (round-robin). 1 = original single-entry behaviour.
+        self.entry_uavs = max(1, int(entry_uavs))
+        # max_packets: fixed-count scenario (e.g. exactly 1000 DATA packets).
+        self.max_packets = None if max_packets is None else int(max_packets)
         self.position = position
         self.packet_rate_pps = float(packet_rate_pps)
         self.packet_size_bytes = int(packet_size_bytes)
@@ -1458,6 +1544,10 @@ class Source:
         while (
             self.next_data_time_ms <= now_ms + eps
             and (
+                self.max_packets is None
+                or self.total_generated < self.max_packets
+            )
+            and (
                 generation_end_ms is None
                 or self.next_data_time_ms < generation_end_ms - eps
             )
@@ -1497,11 +1587,13 @@ class Source:
                 alive_backlog.append(packet)
         self.backlog_packets = alive_backlog
 
-        target = network.nearest_uav_to(self.position)
+        entry_targets = network.nearest_uavs_to(self.position, self.entry_uavs)
+        target = entry_targets[0] if entry_targets else None
         injected_ids = []
         routing_step = max(1, int(math.floor(now_ms / TICK_DURATION_MS)) + 1)
         if target and self.backlog_packets:
-            for packet in self.backlog_packets:
+            for _i, packet in enumerate(self.backlog_packets):
+                target = entry_targets[_i % len(entry_targets)]
                 llm_packet = packet.clone()
                 llm_packet.record_state(
                     step=routing_step,
@@ -1532,7 +1624,7 @@ class Source:
         if injected_ids:
             print(
                 f"[Source t={now_ms/1000.0:.2f}s] injected {len(injected_ids)} DATA packet(s) "
-                f"into {target.uav_id}: {injected_ids}"
+                f"into {len(entry_targets)} entry UAV(s): {injected_ids}"
             )
         elif self.backlog_packets:
             print(
@@ -1693,7 +1785,7 @@ class QFANETRouter:
         self.alpha = alpha
         self.gamma = gamma
         self.epsilon = epsilon
-        self.rng = random.Random()
+        self.rng = random.Random(random.getrandbits(32))   # derived from the global seed -> reproducible
 
         # ------------------------------------------------------------
         # FINITE DATA SERVICE CAPACITY
@@ -1726,7 +1818,8 @@ class QFANETRouter:
                     float(initial_batteries[uid])
                     if uid in initial_batteries
                     else random_initial_battery()
-                )
+                ),
+                drain_per_tick_pct=BATTERY_DRAIN_PER_TICK_PCT,
             )
             for uid in uav_ids
         }
@@ -5337,19 +5430,36 @@ class UAVAgent:
             backend=backend,
         )
 
+        # ReAct + CoT guidance (shares the same LLM client as llm_core).
+        self.react_core = (
+            ReActGuidanceCore(
+                uav_id,
+                llm=self.llm_core.llm,
+                backend=backend,
+                shaping_min=-LLMRL_SHAPING_BOUND,
+                shaping_max=LLMRL_SHAPING_BOUND,
+            )
+            if (LLMRL_REACT_ENABLED and _REACT_AVAILABLE)
+            else None
+        )
+
         self.env = NetworkEnv()
         self.routing_utility = RoutingUtility()
 
         if initial_battery_pct is None:
             initial_battery_pct = random_initial_battery()
         initial_battery_pct = max(0.0, min(100.0, float(initial_battery_pct)))
-        self.battery = BatteryState(level_pct=initial_battery_pct)
+        self.battery = BatteryState(
+            level_pct=initial_battery_pct,
+            drain_per_tick_pct=BATTERY_DRAIN_PER_TICK_PCT,
+        )
         self.packets = PacketQueue()
         self.dropped_deadline = 0
         self.deadline_drop_log = []
         self.last_feedback = {}
         self.pending_transition = None
         self.reward_log = []
+        self._guidance_cache = None
 
         # ------------------------------------------------------------
         # FINITE DATA FORWARDING CAPACITY
@@ -5654,13 +5764,31 @@ class UAVAgent:
                 )
             )
 
+            # Two-hop lookahead (uses only the neighbor's position, already known
+            # from HELLO beacons): how many hops would be needed to reach the GS
+            # through this candidate, assuming ~COMM_RANGE per hop. A candidate
+            # that can hand the packet to the GS on the next tick is the safest
+            # choice for tight deadlines.
+            est_hops_to_gs = (
+                0
+                if is_gs
+                else max(1, int(math.ceil(next_distance / COMM_RANGE)))
+            )
+            gs_reachable_next = bool(is_gs or next_distance <= COMM_RANGE)
+            lookahead_score = 1.0 if is_gs else 1.0 / max(1, est_hops_to_gs)
+
             context.append({
                 "id": node_id,
                 "is_gs": bool(is_gs),
+                "est_hops_to_gs": est_hops_to_gs,
+                "gs_reachable_next": gs_reachable_next,
+                "lookahead_score": round(lookahead_score, 4),
                 "link_distance_m": round(link_distance, 2),
                 "distance_to_gs_m": round(next_distance, 2),
                 "progress_m": round(progress_m, 2),
                 "progress_score": round(progress_score, 4),
+                "signed_progress_score": round(
+                    max(0.0, min(1.0, (progress_m + COMM_RANGE) / (2.0 * COMM_RANGE))), 4),
                 "rssi_dbm": round(rssi, 2),
                 "radio_score": round(radio_score, 4),
                 "stability_score": round(stability_score, 4),
@@ -5691,6 +5819,7 @@ class UAVAgent:
             "energy": 0.10,
             "deadline": 0.15,
             "congestion": 0.15,
+            "lookahead": LLMRL_LOOKAHEAD_WEIGHT,
         }
 
         raw = {
@@ -5720,9 +5849,16 @@ class UAVAgent:
         scores = {}
 
         for item in candidate_context:
+            # In a routing void (no progress link) regressive candidates must still
+            # be ranked: use the signed progress so the least-regressive one wins.
+            prog = (
+                item["progress_score"]
+                if progress_available
+                else item.get("signed_progress_score", item["progress_score"])
+            )
             score = (
                 normalized["progress"]
-                * item["progress_score"]
+                * prog
                 + normalized["stability"]
                 * item["stability_score"]
                 + normalized["energy"]
@@ -5731,6 +5867,8 @@ class UAVAgent:
                 * item["deadline_score"]
                 + normalized["congestion"]
                 * item.get("congestion_score", 1.0)
+                + normalized["lookahead"]
+                * item.get("lookahead_score", 0.5)
             )
 
             if item["is_gs"]:
@@ -5925,9 +6063,50 @@ class UAVAgent:
                 },
             }
 
+        elif links and not LLMRL_LLM_ENABLED:
+            # Ablation: no LLM. Neutral scores, zero shaping -> RL + topology prior only.
+            guidance = {
+                "rationale": "llm_disabled_ablation",
+                "neighbor_scores": {item["id"]: 0.5 for item in candidate_context},
+                "hold_score": 0.5,
+                "shaping": {},
+                "weights": {
+                    "progress": 0.40, "stability": 0.20, "energy": 0.10,
+                    "deadline": 0.15, "congestion": 0.15,
+                },
+            }
+
         elif links:
-            guidance = (
-                self.llm_core.guide_neighbors(
+            guide_fn = (
+                self.react_core.guide
+                if self.react_core is not None
+                else self.llm_core.guide_neighbors
+            )
+            cache = self._guidance_cache
+            if (
+                LLMRL_GUIDANCE_TTL_MS > 0
+                and cache is not None
+                and simulation_time_ms - cache["t"] < LLMRL_GUIDANCE_TTL_MS
+            ):
+                # Slow supervisory LLM layer: reuse the last guidance, remapped
+                # to the current candidates (unknown ids -> neutral, no bonus).
+                g = cache["g"]
+                guidance = {
+                    "rationale": "cached: " + str(g.get("rationale", ""))[:120],
+                    "neighbor_scores": {
+                        item["id"]: g.get("neighbor_scores", {}).get(item["id"], 0.5)
+                        for item in candidate_context
+                    },
+                    "hold_score": g.get("hold_score", 0.5),
+                    "shaping": {
+                        k: v for k, v in (g.get("shaping") or {}).items()
+                        if k == HOLD_ACTION or k in {i["id"] for i in candidate_context}
+                    },
+                    "weights": g.get("weights", {}),
+                    "react_trace": [],
+                }
+            else:
+                guidance = guide_fn(
                     telemetry=telemetry,
                     packets=self.packets,
                     stm=self.stm,
@@ -5936,7 +6115,7 @@ class UAVAgent:
                     previous_feedback=self.last_feedback,
                     simulation_time_ms=simulation_time_ms,
                 )
-            )
+                self._guidance_cache = {"t": simulation_time_ms, "g": guidance}
 
         else:
             guidance = {
@@ -6025,9 +6204,13 @@ class UAVAgent:
             allowed_actions = [
                 link[0]
                 for link in links
-            ] + [
-                HOLD_ACTION
             ]
+            # Holding only makes sense if the packet can outlive a topology change.
+            if (
+                not math.isfinite(min_deadline)
+                or min_deadline > LLMRL_RECOVERY_HOLD_MIN_MS
+            ):
+                allowed_actions.append(HOLD_ACTION)
 
             decision_guard = (
                 "local_minimum_recovery"
@@ -6106,11 +6289,24 @@ class UAVAgent:
             )
         )
 
-        # The LLM influences action selection, not the environment reward.
-        # This keeps the learned value grounded in actual routing outcome.
-        learning_reward = raw_reward
+        # Bounded LLM reward shaping. The RL agent already chose the action;
+        # the LLM only grades it. The bonus is clamped so the environment reward
+        # (QMR + progress/hop cost) always dominates the learning signal.
         llm_bonus = 0.0
-        shaped_reward = learning_reward
+        if LLMRL_SHAPING_ENABLED:
+            try:
+                llm_bonus = float(
+                    (guidance.get("shaping") or {}).get(selected_action, 0.0)
+                )
+            except (TypeError, ValueError):
+                llm_bonus = 0.0
+            llm_bonus = max(
+                -LLMRL_SHAPING_BOUND,
+                min(LLMRL_SHAPING_BOUND, llm_bonus),
+            )
+        learning_reward = raw_reward
+        shaped_reward = learning_reward + llm_bonus
+        react_trace = guidance.get("react_trace", [])
 
         delivered_now = int(
             reward_components.get(
@@ -6197,6 +6393,7 @@ class UAVAgent:
                 "rationale",
                 "",
             ),
+            "react_trace": react_trace,
         }
 
         self.reward_log.append({
@@ -6212,6 +6409,10 @@ class UAVAgent:
             "chosen_neighbor": chosen_neighbor,
             "base_reward": round(
                 raw_reward,
+                4,
+            ),
+            "llm_bonus": round(
+                llm_bonus,
                 4,
             ),
             "final_reward": round(
@@ -6234,6 +6435,7 @@ class UAVAgent:
                 "rationale",
                 "",
             ),
+            "react_trace": react_trace,
         })
 
         print(
@@ -6554,7 +6756,15 @@ def run_simulation(steps=20, num_uavs=DEFAULT_NUM_UAVS, verbose=True, persist_q_
                      packet_size_bytes=DEFAULT_DATA_PACKET_SIZE_BYTES,
                      hello_interval_ms=DEFAULT_HELLO_INTERVAL_MS,
                      hello_packet_size_bytes=DEFAULT_HELLO_PACKET_SIZE_BYTES,
-                     output_json="comparison_results.json"):
+                     output_json="comparison_results.json",
+                     num_packets=None,
+                     entry_uavs=1,
+                     battery_drain_pct=None,
+                     time_profile=None,
+                     tick_ms=None,
+                     deadlines_ms=None,
+                     llm_ttl_ms=None,
+                     seed=None):
     """Run a synchronized LLM+RL vs Q-FANET experiment.
 
     Both systems receive the same traffic and the same mobility/connectivity snapshot.  They keep
@@ -6569,8 +6779,46 @@ def run_simulation(steps=20, num_uavs=DEFAULT_NUM_UAVS, verbose=True, persist_q_
         builtins.print = _silent_print
 
     try:
+        # Time model first: everything below (steps, drain ticks, budgets) depends on it.
+        global LLMRL_GUIDANCE_TTL_MS
+        configure_time_model(tick_ms=tick_ms, deadlines_ms=deadlines_ms, profile=time_profile)
+        if seed is not None:
+            random.seed(int(seed))
+            try:
+                import numpy as _np
+                _np.random.seed(int(seed) % (2 ** 32))
+            except Exception:
+                pass
+        if llm_ttl_ms is not None:
+            LLMRL_GUIDANCE_TTL_MS = float(llm_ttl_ms)
+
+        # Fixed-count scenario: the Source sends exactly ``num_packets`` DATA
+        # packets, one every 1000/packet_rate_pps ms (e.g. 1000 packets, 20 ms).
+        # The experiment length is derived: traffic ticks + drain ticks.
+        if num_packets is not None:
+            num_packets = int(num_packets)
+            if num_packets < 1:
+                raise ValueError("num_packets must be >= 1")
+            _interval_ms = 1000.0 / float(packet_rate_pps)
+            _traffic_ms = (num_packets - 1) * _interval_ms
+            _traffic_ticks = int(math.floor(_traffic_ms / TICK_DURATION_MS)) + 1
+            steps = _traffic_ticks + DRAIN_TICKS
+
         if steps < 2:
             raise ValueError("steps must be >= 2")
+
+        # Battery option. None = original model (3 %/tick). A number sets the
+        # drain per tick. "scaled" picks 45 % / total_ticks, so even a UAV that
+        # starts at 50 % is still operational at the end of a long run.
+        # (Assumption to state in the thesis: the default 3 %/tick empties the
+        # fleet after 4-8 s, which is incompatible with 10-50 s experiments.)
+        global BATTERY_DRAIN_PER_TICK_PCT
+        if battery_drain_pct is not None:
+            BATTERY_DRAIN_PER_TICK_PCT = (
+                min(3.0, 45.0 / steps)
+                if str(battery_drain_pct).lower() == "scaled"
+                else float(battery_drain_pct)
+            )
         if num_uavs < 1:
             raise ValueError("num_uavs must be >= 1")
 
@@ -6597,6 +6845,9 @@ def run_simulation(steps=20, num_uavs=DEFAULT_NUM_UAVS, verbose=True, persist_q_
         source = Source(
             packet_rate_pps=packet_rate_pps,
             packet_size_bytes=packet_size_bytes,
+            deadline_choices=DEADLINE_CHOICES_MS,
+            max_packets=num_packets,
+            entry_uavs=entry_uavs,
         )
 
         data_interval_ms = source.data_interval_ms
@@ -6667,6 +6918,7 @@ def run_simulation(steps=20, num_uavs=DEFAULT_NUM_UAVS, verbose=True, persist_q_
         shared_graph = SharedLinkGraph(
             node_ids=uav_ids + ["GS"], lambda_rate=LAMBDA_RATE, mu_rate=MU_RATE,
             comm_range=COMM_RANGE,
+            seed=None if seed is None else int(seed) + 7919,
         )
         qfanet_router = QFANETRouter(
             network,
@@ -6767,6 +7019,9 @@ def run_simulation(steps=20, num_uavs=DEFAULT_NUM_UAVS, verbose=True, persist_q_
         llm_battery_history = {uid: [] for uid in uav_ids}
         qfanet_battery_history = {uid: [] for uid in uav_ids}
 
+        mob_every = max(1, int(round(PHYSICS_STEP_MS / TICK_DURATION_MS)))
+        mob_dt = mob_every * SIM_TICK_SECONDS
+        active_adj = {}
         try:
             for step in range(1, steps + 1):
                 start_time_ms = (step - 1) * TICK_DURATION_MS
@@ -6780,22 +7035,26 @@ def run_simulation(steps=20, num_uavs=DEFAULT_NUM_UAVS, verbose=True, persist_q_
                 # Identical decaying exploration schedule for both systems.
                 current_epsilon = max(
                     EPSILON_MIN,
-                    EPSILON_START * (EPSILON_DECAY_PER_TICK ** (step - 1)),
+                    EPSILON_START * (EPSILON_DECAY_PER_TICK ** (
+                        (step - 1) * TICK_DURATION_MS / LEGACY_TICK_MS)),
                 )
                 for uav in uavs:
                     uav.rl.epsilon = current_epsilon
                 qfanet_router.epsilon = current_epsilon
 
-                # Physical mobility is integrated using the actual 0.25 s tick duration.
-                for uav in uavs:
-                    uav.update_mobility(dt=SIM_TICK_SECONDS)
-                network.update_positions()
+                # Mobility and link churn are integrated on the 250 ms physics step.
+                # legacy profile: every tick (identical to the original model).
+                # article profile (10 ms tick): once every 25 ticks, dt = 0.25 s.
+                if (step - 1) % mob_every == 0:
+                    for uav in uavs:
+                        uav.update_mobility(dt=mob_dt)
+                    network.update_positions()
 
-                # Hard geometric gate (<=180 m) first, then stochastic in-range fading/churn.
-                graph_positions = dict(network.positions)
-                graph_positions["GS"] = network.gs_position
-                active_edges = shared_graph.step(graph_positions, dt=SIM_TICK_SECONDS)
-                active_adj = shared_graph.neighbors_by_node(active_edges)
+                    # Hard geometric gate (<=180 m) first, then stochastic in-range fading/churn.
+                    graph_positions = dict(network.positions)
+                    graph_positions["GS"] = network.gs_position
+                    active_edges = shared_graph.step(graph_positions, dt=mob_dt)
+                    active_adj = shared_graph.neighbors_by_node(active_edges)
 
                 # HELLO control sub-phase. Each UAV generates HELLO packets every
                 # hello_interval_ms (100 ms by default), independently of the 250 ms tick.
@@ -6934,6 +7193,14 @@ def run_simulation(steps=20, num_uavs=DEFAULT_NUM_UAVS, verbose=True, persist_q_
             qfanet_ground_station.delivery_records,
             "latency_ms",
         )
+        def _max_delivery_metric(records: list, key: str) -> float:
+            values = [float(r[key]) for r in records if r.get(key) is not None]
+            return max(values) if values else 0.0
+
+        llm_max_delay_ms = _max_delivery_metric(
+            ground_station.delivery_records, "latency_ms")
+        qfanet_max_delay_ms = _max_delivery_metric(
+            qfanet_ground_station.delivery_records, "latency_ms")
         llm_mean_hops = _mean_delivery_metric(
             ground_station.delivery_records,
             "hops",
@@ -6950,6 +7217,7 @@ def run_simulation(steps=20, num_uavs=DEFAULT_NUM_UAVS, verbose=True, persist_q_
         print(f"{'PDR (%)':<32}{pdr_llm:>14.1f}%{pdr_qfanet:>14.1f}%")
         print(f"{'Deadline drops':<32}{llm_dropped:>15}{qfanet_router.dropped_deadline:>15}")
         print(f"{'Mean E2E delay (ms)':<32}{llm_mean_delay_ms:>15.1f}{qfanet_mean_delay_ms:>15.1f}")
+        print(f"{'Max E2E delay (ms)':<32}{llm_max_delay_ms:>15.1f}{qfanet_max_delay_ms:>15.1f}")
         print(f"{'Mean delivered hops':<32}{llm_mean_hops:>15.2f}{qfanet_mean_hops:>15.2f}")
         print("Deadline semantics, one-hop-per-tick timing, drain phase and physical link range are identical for both systems.")
 
@@ -7066,6 +7334,7 @@ def run_simulation(steps=20, num_uavs=DEFAULT_NUM_UAVS, verbose=True, persist_q_
                     "pdr_pct": round(pdr_llm, 2),
                     "dropped_deadline": llm_dropped,
                     "mean_e2e_delay_ms": round(llm_mean_delay_ms, 3),
+                    "max_e2e_delay_ms": round(llm_max_delay_ms, 3),
                     "mean_delivered_hops": round(llm_mean_hops, 3),
                 },
                 "qfanet": {
@@ -7074,6 +7343,7 @@ def run_simulation(steps=20, num_uavs=DEFAULT_NUM_UAVS, verbose=True, persist_q_
                     "pdr_pct": round(pdr_qfanet, 2),
                     "dropped_deadline": qfanet_router.dropped_deadline,
                     "mean_e2e_delay_ms": round(qfanet_mean_delay_ms, 3),
+                    "max_e2e_delay_ms": round(qfanet_max_delay_ms, 3),
                     "mean_delivered_hops": round(qfanet_mean_hops, 3),
                 },
                 "llm_backend_split": uav_backend,
@@ -7448,6 +7718,39 @@ def parse_cli_args():
     )
 
     parser.add_argument(
+        "--num-packets",
+        type=int,
+        default=None,
+        help=(
+            "send exactly N DATA packets (e.g. 1000) at the chosen interval; "
+            "--steps is then derived automatically (traffic + drain)."
+        ),
+    )
+
+    parser.add_argument(
+        "--time-profile", choices=sorted(TIME_PROFILES), default="legacy",
+        help="legacy = 250 ms tick, 1-3 s deadlines (original); "
+             "article = 10 ms tick, 100-300 ms deadlines (ms-scale evaluation)",
+    )
+    parser.add_argument("--seed", type=int, default=None, help="random seed (reproducible run)")
+    parser.add_argument("--tick-ms", type=float, default=None, help="override the tick duration (ms)")
+    parser.add_argument(
+        "--deadlines-ms", type=str, default=None,
+        help="comma list overriding the deadline choices, e.g. 100,150,200,250,300",
+    )
+    parser.add_argument(
+        "--llm-ttl-ms", type=float, default=None,
+        help="reuse each UAV's LLM guidance for this many ms (0 = ask every decision)",
+    )
+    parser.add_argument(
+        "--entry-uavs", type=int, default=1,
+        help="number of UAVs the Source injects into, round-robin (default 1 = original)",
+    )
+    parser.add_argument(
+        "--battery-drain-pct", type=str, default=None,
+        help="battery drain per tick: a number, or 'scaled' (45%%/total ticks). Default: 3 %%/tick",
+    )
+    parser.add_argument(
         "--relay-capacity-pps",
         type=float,
         default=DEFAULT_RELAY_CAPACITY_PPS,
@@ -7582,22 +7885,29 @@ if __name__ == "__main__":
         f"HELLO={args.hello_interval_ms:.0f}ms"
     )
 
-  simulation_results = run_simulation(
-    steps=args.steps,
-    num_uavs=args.num_uavs,
-    force_backend=selected_backend,
-    packet_rate_pps=args.packet_rate_pps,
-    relay_capacity_pps=args.relay_capacity_pps,
-    mean_speed_mps=args.speed_mps,
-    packet_size_bytes=args.packet_size_bytes,
-    hello_interval_ms=args.hello_interval_ms,
-    hello_packet_size_bytes=args.hello_size_bytes,
-    output_json=args.output_json,
-    persist_q_table=not args.fresh_learning,
-)
+    simulation_results = run_simulation(
+        steps=args.steps,
+        num_uavs=args.num_uavs,
+        force_backend=selected_backend,
+        packet_rate_pps=args.packet_rate_pps,
+        relay_capacity_pps=args.relay_capacity_pps,
+        mean_speed_mps=args.speed_mps,
+        packet_size_bytes=args.packet_size_bytes,
+        hello_interval_ms=args.hello_interval_ms,
+        hello_packet_size_bytes=args.hello_size_bytes,
+        output_json=args.output_json,
+        persist_q_table=not args.fresh_learning,
+        num_packets=args.num_packets,
+        entry_uavs=args.entry_uavs,
+        battery_drain_pct=args.battery_drain_pct,
+        time_profile=args.time_profile,
+        tick_ms=args.tick_ms,
+        deadlines_ms=(
+            [float(x) for x in args.deadlines_ms.split(",")] if args.deadlines_ms else None
+        ),
+        llm_ttl_ms=args.llm_ttl_ms,
+        seed=args.seed,
+    )
 
-# IMPORTANT:
-# Generate the PNG from the exact JSON file used by Dashboard.html.
-generate_pdr_vs_time_figure(
-    args.output_json
-)
+    # Generate the PNG from the exact JSON file used by Dashboard.html.
+    generate_pdr_vs_time_figure(args.output_json)

@@ -67,7 +67,8 @@ class _Toolbox:
         '- finish args {...guidance...}                      -> end the loop and return guidance'
     )
 
-    def __init__(self, telemetry, packets, stm, ltm, candidates):
+    def __init__(self, telemetry, packets, stm, ltm, candidates, own_id=None):
+        self.own_id = str(own_id) if own_id else None
         self.t = telemetry
         self.packets = packets
         self.stm = stm
@@ -79,6 +80,10 @@ class _Toolbox:
             "get_battery", "get_distance", "get_link_quality",
             "get_queue_load", "get_deadline_status", "read_stm", "search_ltm",
         ]
+
+    def _is_self(self, args):
+        cid = str(args.get("id", "self")).strip()
+        return cid.lower() in ("self", "") or (self.own_id and cid == self.own_id)
 
     def _candidate(self, args):
         cid = str(args.get("id", "")).strip()
@@ -93,13 +98,13 @@ class _Toolbox:
         args = args if isinstance(args, dict) else {}
         try:
             if name == "get_battery":
-                if str(args.get("id", "self")).lower() in ("self", ""):
+                if self._is_self(args):
                     return {"id": "self", "battery_pct": self.t.energy}
                 c, err = self._candidate(args)
                 return err or {"id": c["id"], "battery_pct": c["energy_pct"]}
 
             if name == "get_distance":
-                if str(args.get("id", "self")).lower() in ("self", ""):
+                if self._is_self(args):
                     return {"id": "self", "distance_to_gs_m": self.t.distance_to_gs}
                 c, err = self._candidate(args)
                 return err or {
@@ -107,6 +112,8 @@ class _Toolbox:
                     "link_distance_m": c["link_distance_m"],
                     "candidate_distance_to_gs_m": c["distance_to_gs_m"],
                     "progress_toward_gs_m": c["progress_m"],
+                    "est_hops_to_gs": c.get("est_hops_to_gs"),
+                    "can_reach_gs_next_tick": c.get("gs_reachable_next"),
                 }
 
             if name == "get_link_quality":
@@ -246,6 +253,7 @@ RULES:
                 "id": c["id"],
                 "is_gs": c["is_gs"],
                 "progress_m": c["progress_m"],
+                "est_hops_to_gs": c.get("est_hops_to_gs"),
             }
             for c in candidates
         ]
@@ -267,6 +275,9 @@ RULES:
             f"connectivity: {telemetry.connectivity}\n"
             f"Pending packets: {packets.pending_packets} | min remaining deadline: {dl_text}\n"
             f"Candidates (brief; details only through tools): {json.dumps(brief)}\n"
+            f"Valid tool ids: {[c['id'] for c in candidates]} or \"self\" "
+            f"(you are {self.uav_id}; never use your own id as a candidate).\n"
+            "Fewer est_hops_to_gs = safer for tight deadlines.\n"
             f"Previous transition feedback: {json.dumps(fb)}\n\n"
             "Start with a numbered thought, then call ONE observation tool."
         )
@@ -331,7 +342,8 @@ RULES:
     def guide(self, telemetry, packets, stm, ltm, candidate_context,
               previous_feedback=None, simulation_time_ms=0.0):
         candidate_ids = [str(c["id"]) for c in candidate_context]
-        toolbox = _Toolbox(telemetry, packets, stm, ltm, candidate_context)
+        toolbox = _Toolbox(telemetry, packets, stm, ltm, candidate_context,
+                           own_id=self.uav_id)
         messages = [
             ("system", self.system_prompt),
             ("human", self._initial_prompt(
@@ -363,7 +375,8 @@ RULES:
                 continue
 
             thought, action, args = parsed
-            entry = {"step": step, "thought": thought, "action": action}
+            entry = {"step": step, "thought": thought, "action": action,
+                     "cot_ok": len(thought.strip()) >= 40}
             trace.append(entry)
             messages.append(("ai", json.dumps(
                 {"thought": thought, "action": action, "args": args}, ensure_ascii=False)))
@@ -383,7 +396,58 @@ RULES:
             used_tool = used_tool or ("error" not in observation)
             entry["args"] = args
             entry["observation"] = observation
+            hint = ""
+            if "error" in observation:
+                hint += (f" Use only ids {candidate_ids} or \"self\"."
+                         " If unsure, call finish now.")
+            if not entry["cot_ok"]:
+                hint += " Write your thought as full numbered sentences."
             messages.append(("human", "Observation: " + _short(
-                json.dumps(observation, ensure_ascii=False), 1200)))
+                json.dumps(observation, ensure_ascii=False), 1200) + hint))
 
+        return self._rescue_finish(messages, candidate_context, candidate_ids, trace)
+
+    # ------------------------------------------------------------------
+    def _rescue_finish(self, messages, candidate_context, candidate_ids, trace):
+        """Budget exhausted without `finish`: one extra finish-only call.
+
+        Small local models often burn the whole budget on tool calls. Instead of
+        throwing everything away, ask once for the guidance JSON directly (no
+        tools). If that also fails, fall back to neutral guidance (shaping 0).
+        """
+        table = [
+            {k: c.get(k) for k in (
+                "id", "is_gs", "progress_m", "est_hops_to_gs", "gs_reachable_next",
+                "stability_score", "energy_pct", "congestion_score")}
+            for c in candidate_context
+        ]
+        template = {
+            "rationale": "short why",
+            "neighbor_scores": {cid: 0.5 for cid in candidate_ids},
+            "hold_score": 0.0,
+            "shaping": {cid: 0.0 for cid in candidate_ids},
+            "hold_shaping": 0.0,
+            "weights": dict(DEFAULT_WEIGHTS),
+        }
+        rescue = list(messages) + [(
+            "human",
+            "Tool budget used up. Reply NOW with ONE JSON object "
+            '{"thought": "...", "action": "finish", "args": <guidance>} where <guidance> '
+            f"follows this template (fill real numbers):\n{json.dumps(template)}\n"
+            f"Candidate facts: {json.dumps(table)}")]
+        try:
+            reply = self.llm.invoke(rescue).content
+        except Exception as exc:
+            trace.append({"step": "rescue", "error": f"{type(exc).__name__}"})
+            return self._neutral(candidate_ids, f"llm_call_failed:{type(exc).__name__}", trace)
+        parsed = self._parse_step(reply)
+        if parsed and parsed[1] == "finish":
+            thought, _, args = parsed
+            trace.append({"step": "rescue", "thought": thought, "action": "finish",
+                          "cot_ok": len(thought.strip()) >= 40})
+            guidance = self._build_guidance(args, candidate_ids)
+            guidance["rationale"] = "rescue: " + guidance["rationale"]
+            guidance["react_trace"] = trace
+            return guidance
+        trace.append({"step": "rescue", "error": "invalid_json"})
         return self._neutral(candidate_ids, "react_no_finish_within_budget", trace)
